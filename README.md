@@ -8,7 +8,9 @@ Pulse Designer — планируемый MIDI-инструментальный 
 
 ## Текущее состояние
 
-Проект находится в документационной фазе. Реализация плагина ещё не начата.
+Bootstrap-каркас этапа 1 и первый звуковой срез этапа 2 готовы. Проект собирает
+VST3, AU и Standalone; MIDI note-on уже запускает детерминированный oscillator
+с amp envelope. Следующий шаг — шумовой источник и TPT-фильтр.
 
 - [Спецификация](docs/drum-synth-spec.md)
 - [План реализации](docs/implementation-plan.md)
@@ -92,7 +94,7 @@ Realtime-обработка и офлайн-preview waveform использую�
 - одинаковое поведение на 44.1, 48, 96 и 192 кГц;
 - приемлемая нагрузка при восьми инстансах и 4x oversampling.
 
-После появления каркаса основными командами будут:
+Основные команды:
 
 ```bash
 make              # Release: тесты и плагины
@@ -103,7 +105,13 @@ make vst3         # VST3
 make au           # AU на macOS
 ```
 
-До завершения первого этапа эти команды ещё не существуют.
+В ограниченной среде, где нельзя писать в системные plugin-папки, targets можно
+собрать без копирования артефактов:
+
+```bash
+rtk cmake --preset release -DPULSE_DESIGNER_COPY_PLUGINS=OFF
+rtk cmake --build --preset release --target PulseDesigner_VST3 PulseDesigner_AU PulseDesigner_Standalone
+```
 
 ## Разработка
 
