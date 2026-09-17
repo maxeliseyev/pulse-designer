@@ -28,6 +28,10 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize) noexcept
     currentMaxBlockSize = std::max(maxBlockSize, 0);
     oscillator.prepare(currentSampleRate);
     ampEnvelope.prepare(currentSampleRate);
+    noiseAmpEnvelope.prepare(currentSampleRate);
+    filterEnvelope.prepare(currentSampleRate);
+    noiseGenerator.prepare(currentSampleRate);
+    noiseFilter.prepare(currentSampleRate);
     reset();
 }
 
@@ -35,6 +39,10 @@ void SynthEngine::reset() noexcept
 {
     oscillator.reset();
     ampEnvelope.reset();
+    noiseAmpEnvelope.reset();
+    filterEnvelope.reset();
+    noiseGenerator.reset();
+    noiseFilter.reset();
     voiceLevel = 1.0f;
     voiceActive = false;
 }
@@ -49,17 +57,32 @@ void SynthEngine::trigger(const NoteEvent& event) noexcept
     if (event.type != NoteEventType::noteOn || event.velocity <= 0.0f)
         return;
 
-    const float tracking = std::clamp(config.keyTracking, 0.0f, 1.0f);
+    voiceConfig = config;
+
+    const float tracking = std::clamp(voiceConfig.keyTracking, 0.0f, 1.0f);
     const float trackedFrequency = midiNoteFrequency(event.midiNote);
-    const float frequency = config.pitchHz
+    const float frequency = voiceConfig.pitchHz
                             * std::pow(trackedFrequency / 55.0f, tracking);
 
-    oscillator.start(frequency, config.startPhaseDegrees, config.waveform);
+    oscillator.start(frequency, voiceConfig.startPhaseDegrees, voiceConfig.waveform);
+    noiseGenerator.setType(voiceConfig.noiseType);
+    noiseGenerator.setSampleAndHoldRate(voiceConfig.sampleAndHoldRateHz);
+    noiseGenerator.reset(voiceConfig.noiseSeed);
+    noiseFilter.reset();
+
     voiceLevel = velocityLevel(event.velocity);
     ampEnvelope.start(ampEnvelope.value(),
-                      config.ampAttackMs,
-                      config.ampDecayMs,
-                      config.ampCurve);
+                      voiceConfig.ampAttackMs,
+                      voiceConfig.ampDecayMs,
+                      voiceConfig.ampCurve);
+    noiseAmpEnvelope.start(noiseAmpEnvelope.value(),
+                           voiceConfig.noiseAmpAttackMs,
+                           voiceConfig.noiseAmpDecayMs,
+                           voiceConfig.noiseAmpCurve);
+    filterEnvelope.start(filterEnvelope.value(),
+                         0.0f,
+                         voiceConfig.filterEnvelopeDecayMs,
+                         voiceConfig.ampCurve);
     voiceActive = true;
 }
 
@@ -68,10 +91,25 @@ float SynthEngine::processVoiceSample() noexcept
     if (!voiceActive)
         return 0.0f;
 
-    const float sample = config.level * voiceLevel * oscillator.processSample()
-                         * ampEnvelope.processSample();
-    voiceActive = ampEnvelope.isActive();
-    return sample;
+    const auto oscillatorSample = oscillator.processSample() * ampEnvelope.processSample();
+    const auto filterEnvelopeValue = filterEnvelope.processSample();
+    const auto cutoff = voiceConfig.noiseCutoffHz
+                        * std::pow(2.0f,
+                                   4.0f
+                                       * std::clamp(voiceConfig.filterEnvelopeAmount, -1.0f, 1.0f)
+                                       * filterEnvelopeValue);
+
+    noiseFilter.setParameters(cutoff,
+                              voiceConfig.noiseResonance,
+                              voiceConfig.noiseFilterMorph);
+    const auto noiseSample = noiseFilter.processSample(noiseGenerator.processSample()).morphed
+                              * noiseAmpEnvelope.processSample();
+    const auto noiseMix = std::clamp(voiceConfig.noiseMix, 0.0f, 1.0f);
+    const auto mixedSample = oscillatorSample * (1.0f - noiseMix) + noiseSample * noiseMix;
+
+    voiceActive = ampEnvelope.isActive() || noiseAmpEnvelope.isActive()
+                  || filterEnvelope.isActive();
+    return voiceConfig.level * voiceLevel * mixedSample;
 }
 
 void SynthEngine::processMono(const NoteEvent* events,

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace pulse
 {
 
@@ -8,6 +10,14 @@ enum class Waveform
     sine,
     triangle,
     square
+};
+
+enum class NoiseType
+{
+    white,
+    pink,
+    metallic,
+    sampleAndHold
 };
 
 struct SynthConfig
@@ -20,6 +30,19 @@ struct SynthConfig
     float ampCurve = 0.85f;
     float level = 1.0f;
     float keyTracking = 0.0f;
+
+    NoiseType noiseType = NoiseType::white;
+    float noiseMix = 0.0f;
+    float noiseCutoffHz = 2000.0f;
+    float noiseResonance = 0.2f;
+    float noiseFilterMorph = 0.5f;
+    float filterEnvelopeAmount = 0.0f;
+    float filterEnvelopeDecayMs = 60.0f;
+    float noiseAmpAttackMs = 0.0f;
+    float noiseAmpDecayMs = 150.0f;
+    float noiseAmpCurve = 0.85f;
+    float sampleAndHoldRateHz = 800.0f;
+    std::uint32_t noiseSeed = 0x9e3779b9u;
 };
 
 enum class NoteEventType

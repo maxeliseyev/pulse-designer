@@ -4,7 +4,9 @@
 #include "dsp/Envelope.h"
 #include "dsp/OneShotRenderer.h"
 #include "dsp/Oscillator.h"
+#include "dsp/NoiseGenerator.h"
 #include "dsp/SynthEngine.h"
+#include "dsp/TptStateVariableFilter.h"
 
 #include <algorithm>
 #include <array>
@@ -33,6 +35,121 @@ TEST_CASE("waveform selection is deterministic")
 
     oscillator.start(1000.0f, 0.0f, pulse::Waveform::square);
     REQUIRE_THAT(oscillator.processSample(), WithinAbs(1.0f, 1.0e-6f));
+}
+
+TEST_CASE("noise generators are deterministic and finite")
+{
+    for (const auto type : { pulse::NoiseType::white,
+                             pulse::NoiseType::pink,
+                             pulse::NoiseType::metallic,
+                             pulse::NoiseType::sampleAndHold })
+    {
+        pulse::NoiseGenerator first;
+        pulse::NoiseGenerator second;
+        first.prepare(48000.0);
+        second.prepare(48000.0);
+        first.setType(type);
+        second.setType(type);
+        first.setSampleAndHoldRate(800.0f);
+        second.setSampleAndHoldRate(800.0f);
+        first.reset(12345u);
+        second.reset(12345u);
+
+        for (int sample = 0; sample < 512; ++sample)
+        {
+            const auto firstSample = first.processSample();
+            const auto secondSample = second.processSample();
+            REQUIRE(std::isfinite(firstSample));
+            REQUIRE(firstSample == secondSample);
+            REQUIRE(std::abs(firstSample) <= 1.0f);
+        }
+    }
+}
+
+TEST_CASE("sample and hold noise keeps a value for its period")
+{
+    pulse::NoiseGenerator noise;
+    noise.prepare(48000.0);
+    noise.setType(pulse::NoiseType::sampleAndHold);
+    noise.setSampleAndHoldRate(1000.0f);
+    noise.reset(6789u);
+
+    const auto first = noise.processSample();
+    for (int sample = 1; sample < 48; ++sample)
+        REQUIRE(noise.processSample() == first);
+
+    REQUIRE(noise.processSample() != first);
+}
+
+TEST_CASE("TPT filter exposes a continuous low-band-high morph")
+{
+    pulse::TptStateVariableFilter filter;
+    filter.prepare(48000.0);
+    filter.setParameters(2000.0f, 0.2f, 0.0f);
+
+    float lowEnergy = 0.0f;
+    for (int sample = 0; sample < 512; ++sample)
+    {
+        const auto output = filter.processSample(sample == 0 ? 1.0f : 0.0f);
+        REQUIRE(std::isfinite(output.low));
+        REQUIRE(std::isfinite(output.band));
+        REQUIRE(std::isfinite(output.high));
+        REQUIRE_THAT(output.morphed, WithinAbs(output.low, 1.0e-7f));
+        lowEnergy += std::abs(output.low);
+    }
+
+    filter.reset();
+    filter.setParameters(2000.0f, 0.2f, 0.5f);
+    const auto bandOutput = filter.processSample(1.0f);
+    REQUIRE_THAT(bandOutput.morphed, WithinAbs(bandOutput.band, 1.0e-7f));
+
+    filter.reset();
+    filter.setParameters(2000.0f, 0.2f, 1.0f);
+    float highEnergy = 0.0f;
+    for (int sample = 0; sample < 512; ++sample)
+    {
+        const auto output = filter.processSample(sample == 0 ? 1.0f : 0.0f);
+        REQUIRE_THAT(output.morphed, WithinAbs(output.high, 1.0e-7f));
+        highEnergy += std::abs(output.high);
+    }
+
+    REQUIRE(lowEnergy > 0.0f);
+    REQUIRE(highEnergy > 0.0f);
+}
+
+TEST_CASE("noise voice can render a filtered hit")
+{
+    pulse::SynthConfig config;
+    config.noiseType = pulse::NoiseType::pink;
+    config.noiseMix = 1.0f;
+    config.noiseCutoffHz = 4000.0f;
+    config.noiseAmpDecayMs = 50.0f;
+
+    const auto rendered = pulse::renderOneShot(config, 48000.0, 4800);
+
+    REQUIRE(rendered.size() == 4800);
+    REQUIRE(rendered.front() != 0.0f);
+    REQUIRE(rendered.back() == 0.0f);
+    for (float sample : rendered)
+        REQUIRE(std::isfinite(sample));
+}
+
+TEST_CASE("noise render stays finite at supported sample rates")
+{
+    pulse::SynthConfig config;
+    config.noiseType = pulse::NoiseType::metallic;
+    config.noiseMix = 1.0f;
+    config.noiseAmpDecayMs = 40.0f;
+
+    for (const auto sampleRate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+    {
+        const auto sampleCount = static_cast<int>(sampleRate * 0.1);
+        const auto rendered = pulse::renderOneShot(config, sampleRate, sampleCount);
+        REQUIRE_FALSE(rendered.empty());
+        for (float sample : rendered)
+            REQUIRE(std::isfinite(sample));
+        REQUIRE(rendered.back() == 0.0f);
+    }
 }
 
 TEST_CASE("amp envelope is sample based and reaches its tail")

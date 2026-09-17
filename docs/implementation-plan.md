@@ -1,7 +1,7 @@
 # План реализации Pulse Designer
 
-Статус: bootstrap и первый срез этапа 2 завершены; следующий шаг — noise и
-TPT-фильтр
+Статус: bootstrap, oscillator/envelope и noise/TPT-срез завершены; следующий
+шаг — bursts, velocity mapping и nonlinear output
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -107,10 +107,12 @@ audio buffer
 1. Экспоненциальные attack/decay envelopes с управляемой кривой.
 2. Sine, triangle, square.
 3. Pitch envelope в полутонах и start phase.
-4. White, pink, metallic и S&H noise.
-5. Noise bursts.
-6. Velocity mapping и key tracking.
-7. Oscillator/noise mix.
+4. White, pink, metallic и S&H noise. **Готово.**
+5. TPT/ZDF filter, LP/BP/HP morph, filter envelope и noise amp envelope.
+   **Готово.**
+6. Noise bursts.
+7. Velocity mapping и key tracking.
+8. Oscillator/noise mix.
 
 Каждый примитив покрывается отдельным синтетическим тестом до подключения к
 `PluginProcessor`.
@@ -130,10 +132,10 @@ audio buffer
 - Gain;
 - equal-power pan.
 
-Нужно отдельно проверить, как выбранная версия JUCE предоставляет LP/BP/HP
-для непрерывного морфа. Если `StateVariableTPTFilter` не даёт нужного
-доступа к состояниям, выделить собственный небольшой TPT-wrapper с теми же
-математическими свойствами, не меняя публичную модель синтеза.
+В текущем срезе используется собственный небольшой host-independent TPT-wrapper
+с теми же уравнениями, что и JUCE `StateVariableTPTFilter`, потому что он сразу
+отдаёт LP/BP/HP из одного общего состояния. Решение зафиксировано в
+[`docs/decisions/0001-tpt-filter-wrapper.md`](decisions/0001-tpt-filter-wrapper.md).
 
 **Gate:** один удар рендерится из конфигурации, нет NaN/Inf, DC близок к нулю,
 алиасинг на максимальном Drive укладывается в заранее зафиксированный порог.

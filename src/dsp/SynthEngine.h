@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Envelope.h"
+#include "NoiseGenerator.h"
 #include "Oscillator.h"
 #include "SynthParameters.h"
+#include "TptStateVariableFilter.h"
 
 #include <cstddef>
 
@@ -38,8 +40,13 @@ private:
     double currentSampleRate = 48000.0;
     int currentMaxBlockSize = 0;
     SynthConfig config;
+    SynthConfig voiceConfig;
     Oscillator oscillator;
     ExponentialEnvelope ampEnvelope;
+    ExponentialEnvelope noiseAmpEnvelope;
+    ExponentialEnvelope filterEnvelope;
+    NoiseGenerator noiseGenerator;
+    TptStateVariableFilter noiseFilter;
     float voiceLevel = 1.0f;
     bool voiceActive = false;
 };
