@@ -20,6 +20,14 @@ enum class NoiseType
     sampleAndHold
 };
 
+enum class DriveType
+{
+    soft,
+    hard,
+    asymmetric,
+    fold
+};
+
 struct SynthConfig
 {
     Waveform waveform = Waveform::sine;
@@ -33,6 +41,10 @@ struct SynthConfig
     float ampCurve = 0.85f;
     float level = 1.0f;
     float keyTracking = 0.0f;
+    float shape = 0.0f;
+    DriveType driveType = DriveType::soft;
+    float drive = 0.0f;
+    int oversampling = 4;
 
     NoiseType noiseType = NoiseType::white;
     float noiseMix = 0.0f;

@@ -11,8 +11,9 @@ Pulse Designer — планируемый MIDI-инструментальный 
 Bootstrap-каркас этапа 1 и первый звуковой срез этапа 2 готовы. Проект собирает
 VST3, AU и Standalone; MIDI note-on запускает детерминированный oscillator с amp
 envelope, а noise-ветка уже поддерживает white/pink/metallic/S&H, TPT-фильтр,
-pitch envelope, velocity mapping и noise bursts. Следующий шаг — nonlinear
-выходной тракт.
+pitch envelope, velocity mapping и noise bursts. Выходной тракт уже поддерживает
+Shape, четыре Drive-типа, oversampling и DC blocker; следующий шаг — Tone, gain
+и pan.
 
 - [Спецификация](docs/drum-synth-spec.md)
 - [План реализации](docs/implementation-plan.md)

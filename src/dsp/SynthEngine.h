@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Envelope.h"
+#include "DcBlocker.h"
 #include "NoiseGenerator.h"
+#include "NonlinearStage.h"
 #include "Oscillator.h"
 #include "SynthParameters.h"
 #include "TptStateVariableFilter.h"
@@ -49,6 +51,9 @@ private:
     ExponentialEnvelope filterEnvelope;
     NoiseGenerator noiseGenerator;
     TptStateVariableFilter noiseFilter;
+    NonlinearStage shapeStage { NonlinearStage::Kind::shape };
+    NonlinearStage driveStage { NonlinearStage::Kind::drive };
+    DcBlocker dcBlocker;
     float baseFrequencyHz = 55.0f;
     float pitchEnvelopeAmountSemitones = 0.0f;
     float velocityCutoffOctaves = 0.0f;

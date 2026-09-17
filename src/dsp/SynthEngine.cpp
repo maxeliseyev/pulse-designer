@@ -49,6 +49,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize) noexcept
     filterEnvelope.prepare(currentSampleRate);
     noiseGenerator.prepare(currentSampleRate);
     noiseFilter.prepare(currentSampleRate);
+    dcBlocker.prepare(currentSampleRate);
     reset();
 }
 
@@ -61,6 +62,9 @@ void SynthEngine::reset() noexcept
     filterEnvelope.reset();
     noiseGenerator.reset();
     noiseFilter.reset();
+    shapeStage.reset();
+    driveStage.reset();
+    dcBlocker.reset();
     baseFrequencyHz = 55.0f;
     pitchEnvelopeAmountSemitones = 0.0f;
     velocityCutoffOctaves = 0.0f;
@@ -91,6 +95,11 @@ void SynthEngine::trigger(const NoteEvent& event) noexcept
     oscillator.start(baseFrequencyHz,
                      voiceConfig.startPhaseDegrees,
                      voiceConfig.waveform);
+    shapeStage.setAmount(voiceConfig.shape);
+    shapeStage.setOversampling(voiceConfig.oversampling);
+    driveStage.setAmount(voiceConfig.drive);
+    driveStage.setDriveType(voiceConfig.driveType);
+    driveStage.setOversampling(voiceConfig.oversampling);
     noiseGenerator.setType(voiceConfig.noiseType);
     noiseGenerator.setSampleAndHoldRate(voiceConfig.sampleAndHoldRateHz);
     noiseFilter.reset();
@@ -144,7 +153,11 @@ void SynthEngine::triggerNoiseBurst() noexcept
 float SynthEngine::processVoiceSample() noexcept
 {
     if (!voiceActive)
-        return 0.0f;
+    {
+        const auto shaped = shapeStage.processSample(0.0f);
+        const auto driven = driveStage.processSample(shaped);
+        return voiceConfig.level * voiceLevel * dcBlocker.processSample(driven);
+    }
 
     if (noiseBurstsRemaining > 0 && samplesUntilNextBurst <= 0)
     {
@@ -177,11 +190,14 @@ float SynthEngine::processVoiceSample() noexcept
                               * noiseAmpEnvelope.processSample();
     const auto noiseMix = std::clamp(voiceConfig.noiseMix, 0.0f, 1.0f);
     const auto mixedSample = oscillatorSample * (1.0f - noiseMix) + noiseSample * noiseMix;
+    const auto shapedSample = shapeStage.processSample(mixedSample);
+    const auto drivenSample = driveStage.processSample(shapedSample);
+    const auto outputSample = dcBlocker.processSample(drivenSample);
 
     voiceActive = ampEnvelope.isActive() || pitchEnvelope.isActive()
                   || noiseAmpEnvelope.isActive() || filterEnvelope.isActive()
                   || noiseBurstsRemaining > 0;
-    return voiceConfig.level * voiceLevel * mixedSample;
+    return voiceConfig.level * voiceLevel * outputSample;
 }
 
 void SynthEngine::processMono(const NoteEvent* events,

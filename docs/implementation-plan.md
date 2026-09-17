@@ -1,7 +1,7 @@
 # План реализации Pulse Designer
 
-Статус: bootstrap, oscillator/envelope, noise/TPT и pitch/velocity/bursts-срезы
-завершены; следующий шаг — mix и nonlinear output
+Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts и
+nonlinear output-срезы завершены; следующий шаг — Tone/gain/pan и APVTS
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -126,10 +126,10 @@ audio buffer
 - TPT/ZDF state-variable filter;
 - непрерывный LP → BP → HP morph;
 - filter envelope;
-- `Shape`;
-- soft, hard, asymmetric и fold drive;
-- oversampling 1x/2x/4x/8x вокруг каждого нелинейного участка;
-- DC blocker 10 Гц;
+- `Shape`. **Готово.**
+- soft, hard, asymmetric и fold drive. **Готово.**
+- oversampling 1x/2x/4x/8x вокруг каждого нелинейного участка. **Готово.**
+- DC blocker 10 Гц. **Готово.**
 - Tone;
 - Gain;
 - equal-power pan.
@@ -138,6 +138,11 @@ audio buffer
 с теми же уравнениями, что и JUCE `StateVariableTPTFilter`, потому что он сразу
 отдаёт LP/BP/HP из одного общего состояния. Решение зафиксировано в
 [`docs/decisions/0001-tpt-filter-wrapper.md`](decisions/0001-tpt-filter-wrapper.md).
+
+Oversampling nonlinear stages пока использует deterministic linear interpolation
+на входе и averaging при downsample. Это сохраняет realtime-контракт без
+аллокаций; отдельный aliasing gate должен определить, нужен ли более сложный
+half-band resampler.
 
 **Gate:** один удар рендерится из конфигурации, нет NaN/Inf, DC близок к нулю,
 алиасинг на максимальном Drive укладывается в заранее зафиксированный порог.

@@ -2,9 +2,11 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "dsp/Envelope.h"
+#include "dsp/DcBlocker.h"
 #include "dsp/OneShotRenderer.h"
 #include "dsp/Oscillator.h"
 #include "dsp/NoiseGenerator.h"
+#include "dsp/NonlinearStage.h"
 #include "dsp/SynthEngine.h"
 #include "dsp/TptStateVariableFilter.h"
 
@@ -129,7 +131,7 @@ TEST_CASE("noise voice can render a filtered hit")
 
     REQUIRE(rendered.size() == 4800);
     REQUIRE(rendered.front() != 0.0f);
-    REQUIRE(rendered.back() == 0.0f);
+    REQUIRE(std::abs(rendered.back()) < 1.0e-5f);
     for (float sample : rendered)
         REQUIRE(std::isfinite(sample));
 }
@@ -148,7 +150,7 @@ TEST_CASE("noise render stays finite at supported sample rates")
         REQUIRE_FALSE(rendered.empty());
         for (float sample : rendered)
             REQUIRE(std::isfinite(sample));
-        REQUIRE(rendered.back() == 0.0f);
+        REQUIRE(std::abs(rendered.back()) < 1.0e-5f);
     }
 }
 
@@ -206,8 +208,8 @@ TEST_CASE("noise bursts create separated deterministic hits")
     REQUIRE(energy(0, 96) > 0.0f);
     REQUIRE(energy(240, 336) > 0.0f);
     REQUIRE(energy(480, 576) > 0.0f);
-    REQUIRE(energy(120, 200) == 0.0f);
-    REQUIRE(energy(360, 440) == 0.0f);
+    REQUIRE(energy(120, 200) < energy(0, 96) * 0.1f);
+    REQUIRE(energy(360, 440) < energy(240, 336) * 0.1f);
 }
 
 TEST_CASE("noise bursts are independent of block size")
@@ -250,6 +252,84 @@ TEST_CASE("noise bursts are independent of block size")
     }
 
     REQUIRE(actual == expected);
+}
+
+TEST_CASE("nonlinear stages support every oversampling factor")
+{
+    for (const auto factor : { 1, 2, 4, 8 })
+    {
+        pulse::NonlinearStage shape(pulse::NonlinearStage::Kind::shape);
+        shape.setAmount(0.75f);
+        shape.setOversampling(factor);
+
+        pulse::NonlinearStage drive(pulse::NonlinearStage::Kind::drive);
+        drive.setAmount(0.8f);
+        drive.setOversampling(factor);
+
+        for (const auto type : { pulse::DriveType::soft,
+                                 pulse::DriveType::hard,
+                                 pulse::DriveType::asymmetric,
+                                 pulse::DriveType::fold })
+        {
+            drive.setDriveType(type);
+            for (int sample = 0; sample < 256; ++sample)
+            {
+                const auto input = std::sin(0.03f * static_cast<float>(sample));
+                const auto shaped = shape.processSample(input);
+                const auto driven = drive.processSample(shaped);
+                REQUIRE(std::isfinite(shaped));
+                REQUIRE(std::isfinite(driven));
+            }
+
+            shape.reset();
+            drive.reset();
+        }
+    }
+}
+
+TEST_CASE("nonlinear stages bypass exactly at zero amount")
+{
+    pulse::NonlinearStage shape(pulse::NonlinearStage::Kind::shape);
+    pulse::NonlinearStage drive(pulse::NonlinearStage::Kind::drive);
+    drive.setDriveType(pulse::DriveType::fold);
+    shape.setOversampling(8);
+    drive.setOversampling(8);
+
+    for (const auto input : { -0.8f, -0.1f, 0.0f, 0.25f, 0.9f })
+    {
+        REQUIRE(shape.processSample(input) == input);
+        REQUIRE(drive.processSample(input) == input);
+    }
+}
+
+TEST_CASE("10 Hz DC blocker removes a constant offset")
+{
+    pulse::DcBlocker blocker;
+    blocker.prepare(48000.0);
+
+    float output = 0.0f;
+    for (int sample = 0; sample < 48000; ++sample)
+        output = blocker.processSample(1.0f);
+
+    REQUIRE(std::abs(output) < 1.0e-3f);
+}
+
+TEST_CASE("shape and drive are part of the one-shot render")
+{
+    pulse::SynthConfig config;
+    config.pitchEnvelopeAmountSemitones = 0.0f;
+    config.shape = 0.65f;
+    config.driveType = pulse::DriveType::asymmetric;
+    config.drive = 0.75f;
+    config.oversampling = 4;
+    config.ampDecayMs = 100.0f;
+
+    const auto rendered = pulse::renderOneShot(config, 48000.0, 24000);
+
+    REQUIRE(rendered.size() == 24000);
+    for (float sample : rendered)
+        REQUIRE(std::isfinite(sample));
+    REQUIRE(std::abs(rendered.front()) <= 1.0f);
 }
 
 TEST_CASE("amp envelope is sample based and reaches its tail")
@@ -297,7 +377,7 @@ TEST_CASE("one-shot renderer produces a finite decaying hit")
 
     REQUIRE(rendered.size() == 9600);
     REQUIRE(std::abs(rendered.front()) > 0.5f);
-    REQUIRE(rendered.back() == 0.0f);
+    REQUIRE(std::abs(rendered.back()) < 1.0e-5f);
     for (float sample : rendered)
         REQUIRE(std::isfinite(sample));
 }
