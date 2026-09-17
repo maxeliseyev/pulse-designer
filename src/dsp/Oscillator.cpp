@@ -23,13 +23,18 @@ void Oscillator::start(float frequencyHz,
                        float phaseDegrees,
                        Waveform newWaveform) noexcept
 {
-    const float sampleRate = static_cast<float>(currentSampleRate);
-    const float clampedFrequency = std::clamp(frequencyHz, 0.0f, 0.49f * sampleRate);
     const float normalizedPhase = phaseDegrees / 360.0f;
 
     phase = normalizedPhase - std::floor(normalizedPhase);
-    phaseIncrement = clampedFrequency / sampleRate;
+    setFrequency(frequencyHz);
     waveform = newWaveform;
+}
+
+void Oscillator::setFrequency(float frequencyHz) noexcept
+{
+    const float sampleRate = static_cast<float>(currentSampleRate);
+    const float clampedFrequency = std::clamp(frequencyHz, 0.0f, 0.49f * sampleRate);
+    phaseIncrement = clampedFrequency / sampleRate;
 }
 
 float Oscillator::processSample() noexcept

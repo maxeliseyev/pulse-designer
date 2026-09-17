@@ -2,7 +2,7 @@
 
 Updated: 2026-09-17
 
-Stage: 2/3 — noise source и TPT filter
+Stage: 2/3 — noise/filter и velocity/pitch modulation
 Branch: `feat/dsp-noise-filter`
 PR: нет
 Blockers: нет
@@ -21,6 +21,9 @@ Blockers: нет
 - Добавлены deterministic white/pink/metallic/S&H noise generators.
 - Добавлены noise amp envelope и bipolar filter envelope.
 - Добавлен host-independent TPT state-variable filter с LP/BP/HP morph.
+- Добавлены pitch envelope и sample-accurate oscillator frequency sweep.
+- Добавлены velocity mappings для level, pitch envelope и cutoff.
+- Добавлены до четырёх deterministic noise bursts с burst spacing.
 - Все параметры голоса копируются в snapshot при `note-on`.
 - Добавлены DSP-тесты и plugin smoke-тесты.
 - Добавлен переключатель `PULSE_DESIGNER_COPY_PLUGINS` для сред без доступа к
@@ -30,7 +33,7 @@ Blockers: нет
 
 - `rtk make test` — зелёный, 2 test targets и 2 CTest tests.
 - Тесты покрывают четыре noise type, S&H period, filter morph, noise render и
-  sample rates 44.1/48/96/192 kHz.
+  sample rates 44.1/48/96/192 kHz, pitch/velocity и burst block-size invariance.
 - VST3/AU/Standalone targets собраны через CMake с
   `PULSE_DESIGNER_COPY_PLUGINS=OFF`.
 - При обычном `COPY_PLUGIN_AFTER_BUILD=ON` сборка дошла до копирования, но
@@ -40,11 +43,11 @@ Blockers: нет
 
 Следующий срез DSP:
 
-1. noise bursts и burst spacing для clap;
-2. pitch envelope и velocity mapping;
-3. oscillator/noise mix с зафиксированной публичной семантикой;
-4. Shape, Drive, oversampling 1x/2x/4x/8x;
-5. DC blocker, Tone и output gain/pan.
+1. oscillator/noise mix с зафиксированной публичной семантикой;
+2. Shape и soft/hard/asymmetric/fold Drive;
+3. oversampling 1x/2x/4x/8x вокруг нелинейных участков;
+4. DC blocker, Tone и output gain/pan;
+5. технический aliasing/DC gate.
 
 ## Open
 

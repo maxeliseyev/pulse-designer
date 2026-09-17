@@ -152,6 +152,106 @@ TEST_CASE("noise render stays finite at supported sample rates")
     }
 }
 
+TEST_CASE("pitch envelope sweeps the oscillator frequency")
+{
+    pulse::SynthConfig withoutPitchSweep;
+    withoutPitchSweep.pitchEnvelopeAmountSemitones = 0.0f;
+    withoutPitchSweep.ampDecayMs = 100.0f;
+
+    auto withPitchSweep = withoutPitchSweep;
+    withPitchSweep.pitchEnvelopeAmountSemitones = 24.0f;
+    withPitchSweep.pitchEnvelopeDecayMs = 40.0f;
+
+    const auto steady = pulse::renderOneShot(withoutPitchSweep, 48000.0, 512);
+    const auto swept = pulse::renderOneShot(withPitchSweep, 48000.0, 512);
+
+    REQUIRE(steady.front() == swept.front());
+    REQUIRE(std::abs(steady[64] - swept[64]) > 1.0e-3f);
+}
+
+TEST_CASE("velocity mapping scales a softer hit")
+{
+    pulse::SynthConfig config;
+    config.pitchEnvelopeAmountSemitones = 0.0f;
+    config.ampDecayMs = 100.0f;
+
+    const auto full = pulse::renderOneShot(config, 48000.0, 256, 60, 1.0f);
+    const auto soft = pulse::renderOneShot(config, 48000.0, 256, 60, 0.25f);
+    const auto shapedVelocity = std::pow(0.25f, 1.25f);
+    const auto expectedLevel = 0.3f + 0.7f * shapedVelocity;
+
+    REQUIRE_THAT(full.front(), WithinAbs(1.0f, 1.0e-6f));
+    REQUIRE_THAT(soft.front(), WithinAbs(expectedLevel, 1.0e-6f));
+    REQUIRE(soft.front() < full.front());
+}
+
+TEST_CASE("noise bursts create separated deterministic hits")
+{
+    pulse::SynthConfig config;
+    config.noiseType = pulse::NoiseType::white;
+    config.noiseMix = 1.0f;
+    config.pitchEnvelopeAmountSemitones = 0.0f;
+    config.noiseAmpDecayMs = 2.0f;
+    config.noiseBursts = 3;
+    config.burstSpacingMs = 5.0f;
+
+    const auto rendered = pulse::renderOneShot(config, 48000.0, 1000);
+    const auto energy = [&rendered](int first, int last) {
+        float total = 0.0f;
+        for (int sample = first; sample < last; ++sample)
+            total += std::abs(rendered[static_cast<std::size_t>(sample)]);
+        return total;
+    };
+
+    REQUIRE(energy(0, 96) > 0.0f);
+    REQUIRE(energy(240, 336) > 0.0f);
+    REQUIRE(energy(480, 576) > 0.0f);
+    REQUIRE(energy(120, 200) == 0.0f);
+    REQUIRE(energy(360, 440) == 0.0f);
+}
+
+TEST_CASE("noise bursts are independent of block size")
+{
+    constexpr double sampleRate = 48000.0;
+    constexpr int totalSamples = 2048;
+    constexpr int eventOffset = 37;
+
+    pulse::SynthConfig config;
+    config.noiseType = pulse::NoiseType::sampleAndHold;
+    config.noiseMix = 1.0f;
+    config.pitchEnvelopeAmountSemitones = 0.0f;
+    config.noiseAmpDecayMs = 2.0f;
+    config.noiseBursts = 4;
+    config.burstSpacingMs = 7.0f;
+
+    pulse::SynthEngine oneBlock;
+    oneBlock.prepare(sampleRate, totalSamples);
+    oneBlock.setConfig(config);
+    const pulse::NoteEvent event { pulse::NoteEventType::noteOn, eventOffset, 60, 1.0f };
+    std::vector<float> expected(static_cast<std::size_t>(totalSamples));
+    oneBlock.processMono(&event, 1, expected.data(), totalSamples);
+
+    pulse::SynthEngine splitBlocks;
+    splitBlocks.prepare(sampleRate, 256);
+    splitBlocks.setConfig(config);
+    std::vector<float> actual(static_cast<std::size_t>(totalSamples), 0.0f);
+
+    int rendered = 0;
+    while (rendered < totalSamples)
+    {
+        const int blockSize = std::min(256, totalSamples - rendered);
+        const pulse::NoteEvent* events = rendered == 0 ? &event : nullptr;
+        const int numEvents = rendered == 0 ? 1 : 0;
+        splitBlocks.processMono(events,
+                                numEvents,
+                                actual.data() + rendered,
+                                blockSize);
+        rendered += blockSize;
+    }
+
+    REQUIRE(actual == expected);
+}
+
 TEST_CASE("amp envelope is sample based and reaches its tail")
 {
     pulse::ExponentialEnvelope envelope;

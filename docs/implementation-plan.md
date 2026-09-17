@@ -1,7 +1,7 @@
 # План реализации Pulse Designer
 
-Статус: bootstrap, oscillator/envelope и noise/TPT-срез завершены; следующий
-шаг — bursts, velocity mapping и nonlinear output
+Статус: bootstrap, oscillator/envelope, noise/TPT и pitch/velocity/bursts-срезы
+завершены; следующий шаг — mix и nonlinear output
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -110,9 +110,11 @@ audio buffer
 4. White, pink, metallic и S&H noise. **Готово.**
 5. TPT/ZDF filter, LP/BP/HP morph, filter envelope и noise amp envelope.
    **Готово.**
-6. Noise bursts.
-7. Velocity mapping и key tracking.
-8. Oscillator/noise mix.
+6. Noise bursts. **Готово.**
+7. Velocity mapping и key tracking. **Velocity mapping готово; key tracking
+   уже поддержан базовым voice engine.**
+8. Oscillator/noise mix с явной линейной семантикой. **Базовый mix готов;
+   публичный контракт ещё не зафиксирован.**
 
 Каждый примитив покрывается отдельным синтетическим тестом до подключения к
 `PluginProcessor`.
