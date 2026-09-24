@@ -1,6 +1,7 @@
 add_library(pulse_dsp STATIC
     DcBlocker.cpp
     Envelope.cpp
+    ToneFilter.cpp
     NonlinearStage.cpp
     OneShotRenderer.cpp
     NoiseGenerator.cpp

@@ -155,10 +155,8 @@ docs: record oversampling decision
 
 ## Текущая стадия
 
-Bootstrap-каркас этапа 1 создан: CMake/JUCE/Catch2, VST3/AU/Standalone,
-MIDI-инструмент и plugin smoke-тест уже существуют. Этап 2 начал реализовывать
-детерминированные oscillator, amp envelope и офлайн-рендер одного удара.
+DSP-ядро уже включает oscillator, noise, TPT-фильтр, Shape, Drive, oversampling,
+DC blocker, Tone, output gain и equal-power pan. Публичные APVTS parameters ещё
+не заведены.
 
-Следующий рабочий шаг — шумовой источник и TPT-фильтр.
-Текущий статус, результаты проверок и точка продолжения находятся в
-`docs/status.md`.
+Текущий статус, ветка и следующий шаг — в `docs/status.md`.

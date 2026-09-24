@@ -9,7 +9,19 @@ namespace pulse
 namespace
 {
 constexpr float kCentreGain = 0.7071067811865475f;
+constexpr float kQuarterPi = 0.7853981633974483f;
+constexpr float kMinimumOutputGainDb = -96.0f;
+constexpr float kMaximumOutputGainDb = 12.0f;
 constexpr std::uint32_t kNoiseBurstSeedStep = 0x6d2b79f5u;
+
+float gainFromDecibels(float decibels) noexcept
+{
+    if (!std::isfinite(decibels) || !(decibels > kMinimumOutputGainDb))
+        return 0.0f;
+
+    const auto clamped = std::min(decibels, kMaximumOutputGainDb);
+    return std::pow(10.0f, clamped / 20.0f);
+}
 
 int samplesForMilliseconds(float milliseconds, double sampleRate) noexcept
 {
@@ -50,6 +62,7 @@ void SynthEngine::prepare(double sampleRate, int maxBlockSize) noexcept
     noiseGenerator.prepare(currentSampleRate);
     noiseFilter.prepare(currentSampleRate);
     dcBlocker.prepare(currentSampleRate);
+    toneFilter.prepare(currentSampleRate);
     reset();
 }
 
@@ -65,10 +78,12 @@ void SynthEngine::reset() noexcept
     shapeStage.reset();
     driveStage.reset();
     dcBlocker.reset();
+    toneFilter.reset();
     baseFrequencyHz = 55.0f;
     pitchEnvelopeAmountSemitones = 0.0f;
     velocityCutoffOctaves = 0.0f;
     voiceLevel = 1.0f;
+    latchOutputControls();
     noiseBurstsRemaining = 0;
     burstSpacingSamples = 1;
     samplesUntilNextBurst = 0;
@@ -100,6 +115,7 @@ void SynthEngine::trigger(const NoteEvent& event) noexcept
     driveStage.setAmount(voiceConfig.drive);
     driveStage.setDriveType(voiceConfig.driveType);
     driveStage.setOversampling(voiceConfig.oversampling);
+    latchOutputControls();
     noiseGenerator.setType(voiceConfig.noiseType);
     noiseGenerator.setSampleAndHoldRate(voiceConfig.sampleAndHoldRateHz);
     noiseFilter.reset();
@@ -150,13 +166,52 @@ void SynthEngine::triggerNoiseBurst() noexcept
     ++burstIndex;
 }
 
+void SynthEngine::latchOutputControls() noexcept
+{
+    toneFilter.setTilt(voiceConfig.tone);
+    voiceOutputGain = gainFromDecibels(voiceConfig.outputGainDb);
+
+    const auto rawPan = std::isfinite(voiceConfig.pan) ? voiceConfig.pan : 0.0f;
+    const auto pan = std::clamp(rawPan, -1.0f, 1.0f);
+    if (pan == 0.0f)
+    {
+        voiceLeftGain = kCentreGain;
+        voiceRightGain = kCentreGain;
+        return;
+    }
+
+    if (pan == -1.0f)
+    {
+        voiceLeftGain = 1.0f;
+        voiceRightGain = 0.0f;
+        return;
+    }
+
+    if (pan == 1.0f)
+    {
+        voiceLeftGain = 0.0f;
+        voiceRightGain = 1.0f;
+        return;
+    }
+
+    const auto angle = (pan + 1.0f) * kQuarterPi;
+    voiceLeftGain = std::cos(angle);
+    voiceRightGain = std::sin(angle);
+}
+
+float SynthEngine::applyOutput(float input) noexcept
+{
+    const auto toned = toneFilter.processSample(dcBlocker.processSample(input));
+    return voiceOutputGain * voiceLevel * toned;
+}
+
 float SynthEngine::processVoiceSample() noexcept
 {
     if (!voiceActive)
     {
         const auto shaped = shapeStage.processSample(0.0f);
         const auto driven = driveStage.processSample(shaped);
-        return voiceConfig.level * voiceLevel * dcBlocker.processSample(driven);
+        return applyOutput(driven);
     }
 
     if (noiseBurstsRemaining > 0 && samplesUntilNextBurst <= 0)
@@ -192,23 +247,26 @@ float SynthEngine::processVoiceSample() noexcept
     const auto mixedSample = oscillatorSample * (1.0f - noiseMix) + noiseSample * noiseMix;
     const auto shapedSample = shapeStage.processSample(mixedSample);
     const auto drivenSample = driveStage.processSample(shapedSample);
-    const auto outputSample = dcBlocker.processSample(drivenSample);
 
     voiceActive = ampEnvelope.isActive() || pitchEnvelope.isActive()
                   || noiseAmpEnvelope.isActive() || filterEnvelope.isActive()
                   || noiseBurstsRemaining > 0;
-    return voiceConfig.level * voiceLevel * outputSample;
+    return applyOutput(drivenSample);
 }
 
-void SynthEngine::processMono(const NoteEvent* events,
-                              int numEvents,
-                              float* output,
-                              int numSamples) noexcept
+void SynthEngine::render(const NoteEvent* events,
+                         int numEvents,
+                         float* left,
+                         float* right,
+                         int numSamples,
+                         bool applyPan) noexcept
 {
-    if (output == nullptr || numSamples <= 0)
+    if (left == nullptr || numSamples <= 0)
         return;
 
-    std::fill(output, output + numSamples, 0.0f);
+    std::fill(left, left + numSamples, 0.0f);
+    if (right != nullptr)
+        std::fill(right, right + numSamples, 0.0f);
 
     int eventIndex = 0;
     for (int sample = 0; sample < numSamples; ++sample)
@@ -221,8 +279,25 @@ void SynthEngine::processMono(const NoteEvent* events,
             ++eventIndex;
         }
 
-        output[sample] = processVoiceSample();
+        const auto mono = processVoiceSample();
+        if (!applyPan)
+        {
+            left[sample] = mono;
+            continue;
+        }
+
+        left[sample] = mono * voiceLeftGain;
+        if (right != nullptr)
+            right[sample] = mono * voiceRightGain;
     }
+}
+
+void SynthEngine::processMono(const NoteEvent* events,
+                              int numEvents,
+                              float* output,
+                              int numSamples) noexcept
+{
+    render(events, numEvents, output, nullptr, numSamples, false);
 }
 
 void SynthEngine::process(const NoteEvent* events,
@@ -244,11 +319,10 @@ void SynthEngine::process(const NoteEvent* events,
         return;
     }
 
-    processMono(events, numEvents, output[0], numSamples);
-    for (int sample = 0; sample < numSamples; ++sample)
-        output[0][sample] *= kCentreGain;
+    float* right = numChannels > 1 ? output[1] : nullptr;
+    render(events, numEvents, output[0], right, numSamples, true);
 
-    for (int channel = 1; channel < numChannels; ++channel)
+    for (int channel = 2; channel < numChannels; ++channel)
     {
         if (output[channel] == nullptr)
             continue;
