@@ -6,6 +6,7 @@
 #include "NonlinearStage.h"
 #include "Oscillator.h"
 #include "SynthParameters.h"
+#include "ToneFilter.h"
 #include "TptStateVariableFilter.h"
 
 #include <cstddef>
@@ -38,7 +39,15 @@ public:
 private:
     void trigger(const NoteEvent& event) noexcept;
     void triggerNoiseBurst() noexcept;
+    void latchOutputControls() noexcept;
     float processVoiceSample() noexcept;
+    float applyOutput(float input) noexcept;
+    void render(const NoteEvent* events,
+                int numEvents,
+                float* left,
+                float* right,
+                int numSamples,
+                bool applyPan) noexcept;
 
     double currentSampleRate = 48000.0;
     int currentMaxBlockSize = 0;
@@ -54,10 +63,14 @@ private:
     NonlinearStage shapeStage { NonlinearStage::Kind::shape };
     NonlinearStage driveStage { NonlinearStage::Kind::drive };
     DcBlocker dcBlocker;
+    ToneFilter toneFilter;
     float baseFrequencyHz = 55.0f;
     float pitchEnvelopeAmountSemitones = 0.0f;
     float velocityCutoffOctaves = 0.0f;
     float voiceLevel = 1.0f;
+    float voiceOutputGain = 1.0f;
+    float voiceLeftGain = 0.7071067811865475f;
+    float voiceRightGain = 0.7071067811865475f;
     int noiseBurstsRemaining = 0;
     int burstSpacingSamples = 1;
     int samplesUntilNextBurst = 0;

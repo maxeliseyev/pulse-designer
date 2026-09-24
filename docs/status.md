@@ -1,9 +1,9 @@
 # Status
 
-Updated: 2026-09-17
+Updated: 2026-09-24
 
-Stage: 3 — nonlinear output stage
-Branch: `feat/dsp-noise-filter`
+Stage: 3 — output tone, gain and pan
+Branch: `feat/dsp-tone-output`
 PR: нет
 Blockers: нет
 
@@ -27,18 +27,25 @@ Blockers: нет
 - Добавлены Shape и soft/hard/asymmetric/fold Drive.
 - Добавлено переключаемое 1x/2x/4x/8x oversampling вокруг обоих nonlinear stages.
 - Добавлен постоянно включённый DC blocker на 10 Гц.
-- Все параметры голоса копируются в snapshot при `note-on`.
+- Добавлен выходной Tone: one-pole tilt вокруг 1 кГц, ±6 дБ на ±1.
+- Добавлен output gain в децибелах, −96…+12 дБ; −96 дБ и ниже дают тишину.
+- Добавлен equal-power pan. Монофонический рендер остаётся до панорамы.
+- Все параметры голоса, включая Tone, gain и pan, копируются в snapshot при
+  `note-on`.
 - Добавлены DSP-тесты и plugin smoke-тесты.
 - Добавлен переключатель `PULSE_DESIGNER_COPY_PLUGINS` для сред без доступа к
   системным plugin-папкам.
 
 ## Verification
 
-- `rtk make test` — зелёный, 2 test targets и 2 CTest tests.
+- `rtk make test` — зелёный.
 - Тесты покрывают четыре noise type, S&H period, filter morph, noise render и
   sample rates 44.1/48/96/192 kHz, pitch/velocity и burst block-size invariance.
 - Тесты покрывают все drive types, oversampling factors, DC blocker и nonlinear
   one-shot render.
+- Тесты покрывают обход Tone, асимптоты ±6 дБ на 44.1/48/96/192 кГц, направление
+  наклона на низком и высоком тоне, clamp gain, equal-power pan, latch и
+  block-size invariance стереовыхода.
 - VST3/AU/Standalone targets собраны через CMake с
   `PULSE_DESIGNER_COPY_PLUGINS=OFF`.
 - При обычном `COPY_PLUGIN_AFTER_BUILD=ON` сборка дошла до копирования, но
@@ -46,13 +53,12 @@ Blockers: нет
 
 ## Next
 
-Следующий срез DSP:
+Следующий срез:
 
-1. Tone, output gain и equal-power pan;
-2. oscillator/noise mix с зафиксированной публичной семантикой;
-3. измерительный aliasing/DC gate;
-4. APVTS parameter contract и state round-trip;
-5. factory presets.
+1. oscillator/noise mix с зафиксированной публичной семантикой и default `0.5`;
+2. измерительный aliasing/DC gate;
+3. APVTS parameter contract и state round-trip;
+4. factory presets.
 
 ## Open
 
