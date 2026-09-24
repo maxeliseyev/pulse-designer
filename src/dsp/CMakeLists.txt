@@ -1,8 +1,12 @@
 add_library(pulse_dsp STATIC
+    DcBlocker.cpp
     Envelope.cpp
+    NonlinearStage.cpp
     OneShotRenderer.cpp
+    NoiseGenerator.cpp
     Oscillator.cpp
-    SynthEngine.cpp)
+    SynthEngine.cpp
+    TptStateVariableFilter.cpp)
 
 target_include_directories(pulse_dsp
     PUBLIC

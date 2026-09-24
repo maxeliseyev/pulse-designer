@@ -11,6 +11,7 @@ public:
     void prepare(double sampleRate) noexcept;
     void reset() noexcept;
     void start(float frequencyHz, float phaseDegrees, Waveform newWaveform) noexcept;
+    void setFrequency(float frequencyHz) noexcept;
 
     float processSample() noexcept;
 

@@ -1,7 +1,7 @@
 # План реализации Pulse Designer
 
-Статус: bootstrap и первый срез этапа 2 завершены; следующий шаг — noise и
-TPT-фильтр
+Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts и
+nonlinear output-срезы завершены; следующий шаг — Tone/gain/pan и APVTS
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -107,10 +107,14 @@ audio buffer
 1. Экспоненциальные attack/decay envelopes с управляемой кривой.
 2. Sine, triangle, square.
 3. Pitch envelope в полутонах и start phase.
-4. White, pink, metallic и S&H noise.
-5. Noise bursts.
-6. Velocity mapping и key tracking.
-7. Oscillator/noise mix.
+4. White, pink, metallic и S&H noise. **Готово.**
+5. TPT/ZDF filter, LP/BP/HP morph, filter envelope и noise amp envelope.
+   **Готово.**
+6. Noise bursts. **Готово.**
+7. Velocity mapping и key tracking. **Velocity mapping готово; key tracking
+   уже поддержан базовым voice engine.**
+8. Oscillator/noise mix с явной линейной семантикой. **Базовый mix готов;
+   публичный контракт ещё не зафиксирован.**
 
 Каждый примитив покрывается отдельным синтетическим тестом до подключения к
 `PluginProcessor`.
@@ -122,18 +126,23 @@ audio buffer
 - TPT/ZDF state-variable filter;
 - непрерывный LP → BP → HP morph;
 - filter envelope;
-- `Shape`;
-- soft, hard, asymmetric и fold drive;
-- oversampling 1x/2x/4x/8x вокруг каждого нелинейного участка;
-- DC blocker 10 Гц;
+- `Shape`. **Готово.**
+- soft, hard, asymmetric и fold drive. **Готово.**
+- oversampling 1x/2x/4x/8x вокруг каждого нелинейного участка. **Готово.**
+- DC blocker 10 Гц. **Готово.**
 - Tone;
 - Gain;
 - equal-power pan.
 
-Нужно отдельно проверить, как выбранная версия JUCE предоставляет LP/BP/HP
-для непрерывного морфа. Если `StateVariableTPTFilter` не даёт нужного
-доступа к состояниям, выделить собственный небольшой TPT-wrapper с теми же
-математическими свойствами, не меняя публичную модель синтеза.
+В текущем срезе используется собственный небольшой host-independent TPT-wrapper
+с теми же уравнениями, что и JUCE `StateVariableTPTFilter`, потому что он сразу
+отдаёт LP/BP/HP из одного общего состояния. Решение зафиксировано в
+[`docs/decisions/0001-tpt-filter-wrapper.md`](decisions/0001-tpt-filter-wrapper.md).
+
+Oversampling nonlinear stages пока использует deterministic linear interpolation
+на входе и averaging при downsample. Это сохраняет realtime-контракт без
+аллокаций; отдельный aliasing gate должен определить, нужен ли более сложный
+half-band resampler.
 
 **Gate:** один удар рендерится из конфигурации, нет NaN/Inf, DC близок к нулю,
 алиасинг на максимальном Drive укладывается в заранее зафиксированный порог.
