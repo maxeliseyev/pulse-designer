@@ -4,7 +4,8 @@ Updated: 2026-09-24
 
 Stage: 3 — output tone, gain and pan
 Branch: `feat/dsp-tone-output`
-PR: нет
+PR: [#3](https://github.com/maxeliseyev/pulse-designer/pull/3) в `feat/dsp-noise-filter`
+Base PR: [#2](https://github.com/maxeliseyev/pulse-designer/pull/2) в `main`
 Blockers: нет
 
 ## Done
