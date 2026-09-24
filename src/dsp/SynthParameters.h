@@ -39,12 +39,14 @@ struct SynthConfig
     float ampAttackMs = 0.0f;
     float ampDecayMs = 400.0f;
     float ampCurve = 0.85f;
-    float level = 1.0f;
     float keyTracking = 0.0f;
     float shape = 0.0f;
     DriveType driveType = DriveType::soft;
     float drive = 0.0f;
     int oversampling = 4;
+    float tone = 0.0f;
+    float outputGainDb = 0.0f;
+    float pan = 0.0f;
 
     NoiseType noiseType = NoiseType::white;
     float noiseMix = 0.0f;

@@ -1,7 +1,7 @@
 # План реализации Pulse Designer
 
-Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts и
-nonlinear output-срезы завершены; следующий шаг — Tone/gain/pan и APVTS
+Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts,
+nonlinear output и Tone/gain/pan завершены; следующий шаг — публичный Mix и APVTS
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -130,9 +130,9 @@ audio buffer
 - soft, hard, asymmetric и fold drive. **Готово.**
 - oversampling 1x/2x/4x/8x вокруг каждого нелинейного участка. **Готово.**
 - DC blocker 10 Гц. **Готово.**
-- Tone;
-- Gain;
-- equal-power pan.
+- Tone. **Готово.** Опорная частота 1 кГц, глубина ±6 дБ.
+- Gain. **Готово.** −96…+12 дБ, ниже −96 дБ — тишина.
+- equal-power pan. **Готово.** В монофоническом рендере не применяется.
 
 В текущем срезе используется собственный небольшой host-independent TPT-wrapper
 с теми же уравнениями, что и JUCE `StateVariableTPTFilter`, потому что он сразу
