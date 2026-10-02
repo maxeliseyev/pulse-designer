@@ -4,9 +4,8 @@ Updated: 2026-10-02
 
 Stage: 3 — oscillator/noise mix
 Branch: `feat/dsp-output-mix`
-PR: нет
-Blockers: нет. База — `main` после
-[#4](https://github.com/maxeliseyev/pulse-designer/pull/4).
+PR: [#5](https://github.com/maxeliseyev/pulse-designer/pull/5) в `main`
+Blockers: нет
 
 ## Done
 
