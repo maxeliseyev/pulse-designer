@@ -12,8 +12,9 @@ Bootstrap-каркас этапа 1 и первый звуковой срез э
 VST3, AU и Standalone; MIDI note-on запускает детерминированный oscillator с amp
 envelope, а noise-ветка уже поддерживает white/pink/metallic/S&H, TPT-фильтр,
 pitch envelope, velocity mapping и noise bursts. Выходной тракт поддерживает
-Shape, четыре Drive-типа, oversampling, DC blocker, Tone, output gain и
-equal-power pan. Следующий шаг — публичная семантика Mix и APVTS.
+Shape, четыре Drive-типа, oversampling, DC blocker, Tone, output gain,
+equal-power pan и линейный Mix осциллятора с шумом. Следующий шаг — замер
+алиасинга и публичный контракт параметров.
 
 - [Спецификация](docs/drum-synth-spec.md)
 - [План реализации](docs/implementation-plan.md)

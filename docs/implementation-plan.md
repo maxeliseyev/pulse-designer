@@ -1,7 +1,8 @@
 # План реализации Pulse Designer
 
 Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts,
-nonlinear output и Tone/gain/pan завершены; следующий шаг — публичный Mix и APVTS
+nonlinear output, Tone/gain/pan и линейный Mix завершены; следующий шаг —
+aliasing gate и APVTS
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -113,8 +114,8 @@ audio buffer
 6. Noise bursts. **Готово.**
 7. Velocity mapping и key tracking. **Velocity mapping готово; key tracking
    уже поддержан базовым voice engine.**
-8. Oscillator/noise mix с явной линейной семантикой. **Базовый mix готов;
-   публичный контракт ещё не зафиксирован.**
+8. Oscillator/noise mix с явной линейной семантикой. **Готово.** `0` —
+   осциллятор, `1` — шум, по умолчанию `0.5`.
 
 Каждый примитив покрывается отдельным синтетическим тестом до подключения к
 `PluginProcessor`.

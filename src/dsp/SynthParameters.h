@@ -49,7 +49,7 @@ struct SynthConfig
     float pan = 0.0f;
 
     NoiseType noiseType = NoiseType::white;
-    float noiseMix = 0.0f;
+    float noiseMix = 0.5f;
     float noiseCutoffHz = 2000.0f;
     float noiseResonance = 0.2f;
     float noiseFilterMorph = 0.5f;

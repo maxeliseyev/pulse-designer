@@ -159,6 +159,7 @@ TEST_CASE("noise render stays finite at supported sample rates")
 TEST_CASE("pitch envelope sweeps the oscillator frequency")
 {
     pulse::SynthConfig withoutPitchSweep;
+    withoutPitchSweep.noiseMix = 0.0f;
     withoutPitchSweep.pitchEnvelopeAmountSemitones = 0.0f;
     withoutPitchSweep.ampDecayMs = 100.0f;
 
@@ -176,6 +177,7 @@ TEST_CASE("pitch envelope sweeps the oscillator frequency")
 TEST_CASE("velocity mapping scales a softer hit")
 {
     pulse::SynthConfig config;
+    config.noiseMix = 0.0f;
     config.pitchEnvelopeAmountSemitones = 0.0f;
     config.ampDecayMs = 100.0f;
 
@@ -319,6 +321,7 @@ TEST_CASE("10 Hz DC blocker removes a constant offset")
 TEST_CASE("shape and drive are part of the one-shot render")
 {
     pulse::SynthConfig config;
+    config.noiseMix = 0.0f;
     config.pitchEnvelopeAmountSemitones = 0.0f;
     config.shape = 0.65f;
     config.driveType = pulse::DriveType::asymmetric;
@@ -372,6 +375,7 @@ TEST_CASE("envelope retrigger starts from its current value")
 TEST_CASE("one-shot renderer produces a finite decaying hit")
 {
     pulse::SynthConfig config;
+    config.noiseMix = 0.0f;
     config.pitchHz = 55.0f;
     config.ampDecayMs = 100.0f;
 
@@ -459,8 +463,22 @@ float windowRms(const std::vector<float>& rendered, int first, int last)
 pulse::SynthConfig steadyToneConfig()
 {
     pulse::SynthConfig config;
+    config.noiseMix = 0.0f;
     config.pitchEnvelopeAmountSemitones = 0.0f;
     config.ampDecayMs = 200.0f;
+    return config;
+}
+
+pulse::SynthConfig linearMixConfig()
+{
+    pulse::SynthConfig config;
+    config.pitchEnvelopeAmountSemitones = 0.0f;
+    config.ampDecayMs = 80.0f;
+    config.noiseAmpDecayMs = 80.0f;
+    config.shape = 0.0f;
+    config.drive = 0.0f;
+    config.tone = 0.0f;
+    config.outputGainDb = 0.0f;
     return config;
 }
 } // namespace
@@ -781,4 +799,84 @@ TEST_CASE("tone gain and pan are independent of block size")
 
     REQUIRE(left == expectedLeft);
     REQUIRE(right == expectedRight);
+}
+
+TEST_CASE("mix default is an equal linear sum of oscillator and noise")
+{
+    const auto config = linearMixConfig();
+    REQUIRE(config.noiseMix == 0.5f);
+
+    auto oscillatorOnly = config;
+    auto noiseOnly = config;
+    oscillatorOnly.noiseMix = 0.0f;
+    noiseOnly.noiseMix = 1.0f;
+
+    const auto mixed = pulse::renderOneShot(config, 48000.0, 256);
+    const auto oscillator = pulse::renderOneShot(oscillatorOnly, 48000.0, 256);
+    const auto noise = pulse::renderOneShot(noiseOnly, 48000.0, 256);
+
+    REQUIRE(mixed != oscillator);
+    REQUIRE(mixed != noise);
+    for (std::size_t index = 0; index < mixed.size(); ++index)
+    {
+        const auto expected = 0.5f * (oscillator[index] + noise[index]);
+        REQUIRE_THAT(mixed[index], WithinAbs(expected, 1.0e-5f));
+    }
+}
+
+TEST_CASE("mix endpoints select one source")
+{
+    auto oscillatorOnly = linearMixConfig();
+    oscillatorOnly.noiseMix = 0.0f;
+    auto otherSeed = oscillatorOnly;
+    otherSeed.noiseSeed = 99u;
+    REQUIRE(pulse::renderOneShot(oscillatorOnly, 48000.0, 128)
+            == pulse::renderOneShot(otherSeed, 48000.0, 128));
+
+    auto noiseOnly = linearMixConfig();
+    noiseOnly.noiseMix = 1.0f;
+    auto otherPitch = noiseOnly;
+    otherPitch.pitchHz = 440.0f;
+    otherPitch.waveform = pulse::Waveform::square;
+    REQUIRE(pulse::renderOneShot(noiseOnly, 48000.0, 128)
+            == pulse::renderOneShot(otherPitch, 48000.0, 128));
+
+    auto above = linearMixConfig();
+    auto below = linearMixConfig();
+    above.noiseMix = 4.0f;
+    below.noiseMix = -2.0f;
+    REQUIRE(pulse::renderOneShot(above, 48000.0, 128)
+            == pulse::renderOneShot(noiseOnly, 48000.0, 128));
+    REQUIRE(pulse::renderOneShot(below, 48000.0, 128)
+            == pulse::renderOneShot(oscillatorOnly, 48000.0, 128));
+
+    auto missing = linearMixConfig();
+    missing.noiseMix = std::nanf("");
+    REQUIRE(pulse::renderOneShot(missing, 48000.0, 64)
+            == pulse::renderOneShot(linearMixConfig(), 48000.0, 64));
+}
+
+TEST_CASE("mix stays latched until the next note")
+{
+    constexpr int blockSize = 64;
+    auto config = linearMixConfig();
+    config.noiseMix = 0.0f;
+    const pulse::NoteEvent event { pulse::NoteEventType::noteOn, 0, 60, 1.0f };
+
+    pulse::SynthEngine steady;
+    steady.prepare(48000.0, blockSize * 2);
+    steady.setConfig(config);
+    std::vector<float> expected(static_cast<std::size_t>(blockSize * 2));
+    steady.processMono(&event, 1, expected.data(), blockSize * 2);
+
+    pulse::SynthEngine changed;
+    changed.prepare(48000.0, blockSize);
+    changed.setConfig(config);
+    std::vector<float> actual(static_cast<std::size_t>(blockSize * 2));
+    changed.processMono(&event, 1, actual.data(), blockSize);
+    config.noiseMix = 1.0f;
+    changed.setConfig(config);
+    changed.processMono(nullptr, 0, actual.data() + blockSize, blockSize);
+
+    REQUIRE(actual == expected);
 }

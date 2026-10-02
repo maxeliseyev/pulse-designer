@@ -23,7 +23,7 @@ TEST_CASE("plugin renders a note-on at its exact sample offset")
     processor.processBlock(buffer, midi);
 
     REQUIRE_THAT(buffer.getSample(0, 36), WithinAbs(0.0f, 1.0e-7f));
-    REQUIRE(std::abs(buffer.getSample(0, 37)) > 0.5f);
+    REQUIRE(std::abs(buffer.getSample(0, 37)) > 0.2f);
     REQUIRE_THAT(buffer.getSample(0, 37),
                  WithinAbs(buffer.getSample(1, 37), 1.0e-7f));
 }
