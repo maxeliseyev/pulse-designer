@@ -1,4 +1,5 @@
 add_executable(pulse_tests
+    test_aliasing_gate.cpp
     test_synth_engine.cpp)
 
 target_link_libraries(pulse_tests

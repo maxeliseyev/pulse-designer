@@ -20,7 +20,7 @@
 
 ## Consequence
 
-Это первый рабочий oversampling-контракт, но не финальный sound-quality gate.
-Нужно измерить aliasing на максимальном Drive; если averaging не даст нужного
-порога, resampler заменяется на half-band каскад без изменения публичной модели
-`SynthConfig`.
+Порог алиасинга измерен в
+[`0005-aliasing-dc-gate.md`](0005-aliasing-dc-gate.md). Linear interpolation и
+averaging на 4x и 8x укладываются в −60 дБ ниже основного тона и ниже 5 кГц.
+Half-band не требуется и публичную модель `SynthConfig` не меняет.
