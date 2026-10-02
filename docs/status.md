@@ -4,7 +4,7 @@ Updated: 2026-10-02
 
 Stage: 3 — aliasing and DC gate
 Branch: `feat/dsp-aliasing-gate`
-PR: нет
+PR: [#6](https://github.com/maxeliseyev/pulse-designer/pull/6) в `main`
 Blockers: нет
 
 ## Done
