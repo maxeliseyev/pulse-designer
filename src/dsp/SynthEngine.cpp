@@ -48,6 +48,15 @@ float velocityMapping(float shaped, float amount) noexcept
     const auto normalizedAmount = std::clamp(amount, 0.0f, 1.0f);
     return 1.0f - normalizedAmount + normalizedAmount * shaped;
 }
+
+float oscillatorNoiseMix(float mix) noexcept
+{
+    // A non-finite value keeps the published default instead of sticking a source.
+    if (!std::isfinite(mix))
+        return 0.5f;
+
+    return std::clamp(mix, 0.0f, 1.0f);
+}
 } // namespace
 
 void SynthEngine::prepare(double sampleRate, int maxBlockSize) noexcept
@@ -243,7 +252,7 @@ float SynthEngine::processVoiceSample() noexcept
                               voiceConfig.noiseFilterMorph);
     const auto noiseSample = noiseFilter.processSample(noiseGenerator.processSample()).morphed
                               * noiseAmpEnvelope.processSample();
-    const auto noiseMix = std::clamp(voiceConfig.noiseMix, 0.0f, 1.0f);
+    const auto noiseMix = oscillatorNoiseMix(voiceConfig.noiseMix);
     const auto mixedSample = oscillatorSample * (1.0f - noiseMix) + noiseSample * noiseMix;
     const auto shapedSample = shapeStage.processSample(mixedSample);
     const auto drivenSample = driveStage.processSample(shapedSample);

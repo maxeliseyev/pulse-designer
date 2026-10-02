@@ -1,12 +1,12 @@
 # Status
 
-Updated: 2026-09-24
+Updated: 2026-10-02
 
-Stage: 3 — output tone, gain and pan
-Branch: `feat/dsp-tone-output`
-PR: [#3](https://github.com/maxeliseyev/pulse-designer/pull/3) в `feat/dsp-noise-filter`
-Base PR: [#2](https://github.com/maxeliseyev/pulse-designer/pull/2) в `main`
-Blockers: нет
+Stage: 3 — oscillator/noise mix
+Branch: `feat/dsp-output-mix`
+PR: нет
+Blockers: нет. База — `main` после
+[#4](https://github.com/maxeliseyev/pulse-designer/pull/4).
 
 ## Done
 
@@ -31,22 +31,23 @@ Blockers: нет
 - Добавлен выходной Tone: one-pole tilt вокруг 1 кГц, ±6 дБ на ±1.
 - Добавлен output gain в децибелах, −96…+12 дБ; −96 дБ и ниже дают тишину.
 - Добавлен equal-power pan. Монофонический рендер остаётся до панорамы.
-- Все параметры голоса, включая Tone, gain и pan, копируются в snapshot при
-  `note-on`.
+- Зафиксирован линейный Mix: `0` осциллятор, `1` шум, по умолчанию `0.5`.
+- Все параметры голоса копируются в snapshot при `note-on`.
 - Добавлены DSP-тесты и plugin smoke-тесты.
 - Добавлен переключатель `PULSE_DESIGNER_COPY_PLUGINS` для сред без доступа к
   системным plugin-папкам.
 
 ## Verification
 
-- `rtk make test` — зелёный.
+- `rtk make test` — зелёный, оба таргета.
 - Тесты покрывают четыре noise type, S&H period, filter morph, noise render и
   sample rates 44.1/48/96/192 kHz, pitch/velocity и burst block-size invariance.
 - Тесты покрывают все drive types, oversampling factors, DC blocker и nonlinear
   one-shot render.
 - Тесты покрывают обход Tone, асимптоты ±6 дБ на 44.1/48/96/192 кГц, направление
-  наклона на низком и высоком тоне, clamp gain, equal-power pan, latch и
-  block-size invariance стереовыхода.
+  наклона, clamp gain, equal-power pan, latch и block-size invariance стереовыхода.
+- Тесты Mix проверяют середину как среднее двух источников, глушение второго
+  источника на краях, зажим диапазона и latch.
 - VST3/AU/Standalone targets собраны через CMake с
   `PULSE_DESIGNER_COPY_PLUGINS=OFF`.
 - При обычном `COPY_PLUGIN_AFTER_BUILD=ON` сборка дошла до копирования, но
@@ -56,18 +57,14 @@ Blockers: нет
 
 Следующий срез:
 
-1. oscillator/noise mix с зафиксированной публичной семантикой и default `0.5`;
-2. измерительный aliasing/DC gate;
-3. APVTS parameter contract и state round-trip;
-4. factory presets.
+1. измерительный aliasing/DC gate;
+2. APVTS parameter contract и state round-trip;
+3. factory presets.
 
 ## Open
 
 - Публичные APVTS parameters ещё не добавлены: их IDs нужно зафиксировать
   вместе с первым рабочим звуковым срезом.
-- Внутренний `noiseMix` по умолчанию остаётся `0.0`, чтобы не менять характер
-  первого oscillator-среза до появления публичного parameter contract; default
-  продуктового Mix из спецификации зафиксируем вместе с APVTS.
 - Текущий oversampling использует deterministic linear interpolation и
   averaging при downsample; aliasing threshold нужно измерить отдельным gate и
   при необходимости заменить внутренний resampler на half-band вариант.
