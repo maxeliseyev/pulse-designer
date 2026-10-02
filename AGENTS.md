@@ -156,7 +156,8 @@ docs: record oversampling decision
 ## Текущая стадия
 
 DSP-ядро уже включает oscillator, noise, линейный Mix, TPT-фильтр, Shape,
-Drive, oversampling, DC blocker, Tone, output gain и equal-power pan. Публичные
-APVTS parameters ещё не заведены.
+Drive, oversampling, DC blocker, Tone, output gain и equal-power pan.
+Aliasing/DC gate пройден, ресемплер остаётся linear interpolation и averaging.
+Публичные APVTS parameters ещё не заведены.
 
 Текущий статус, ветка и следующий шаг — в `docs/status.md`.

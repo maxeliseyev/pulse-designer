@@ -13,8 +13,8 @@ VST3, AU и Standalone; MIDI note-on запускает детерминиров
 envelope, а noise-ветка уже поддерживает white/pink/metallic/S&H, TPT-фильтр,
 pitch envelope, velocity mapping и noise bursts. Выходной тракт поддерживает
 Shape, четыре Drive-типа, oversampling, DC blocker, Tone, output gain,
-equal-power pan и линейный Mix осциллятора с шумом. Следующий шаг — замер
-алиасинга и публичный контракт параметров.
+equal-power pan и линейный Mix осциллятора с шумом. Aliasing/DC gate пройден
+на текущем oversampling. Следующий шаг — публичный контракт параметров.
 
 - [Спецификация](docs/drum-synth-spec.md)
 - [План реализации](docs/implementation-plan.md)

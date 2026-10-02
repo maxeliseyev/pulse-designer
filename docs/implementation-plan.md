@@ -1,8 +1,8 @@
 # План реализации Pulse Designer
 
 Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts,
-nonlinear output, Tone/gain/pan и линейный Mix завершены; следующий шаг —
-aliasing gate и APVTS
+nonlinear output, Tone/gain/pan, линейный Mix и aliasing/DC gate завершены;
+следующий шаг — APVTS
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -140,13 +140,14 @@ audio buffer
 отдаёт LP/BP/HP из одного общего состояния. Решение зафиксировано в
 [`docs/decisions/0001-tpt-filter-wrapper.md`](decisions/0001-tpt-filter-wrapper.md).
 
-Oversampling nonlinear stages пока использует deterministic linear interpolation
-на входе и averaging при downsample. Это сохраняет realtime-контракт без
-аллокаций; отдельный aliasing gate должен определить, нужен ли более сложный
-half-band resampler.
+Oversampling nonlinear stages использует deterministic linear interpolation
+на входе и averaging при downsample. Aliasing/DC gate пройден: на максимальном
+Drive негармоники ниже основного тона и ниже 5 кГц тише −60 дБ, хвост удара
+имеет среднее около нуля. Half-band не потребовался. Измерение —
+[`docs/decisions/0005-aliasing-dc-gate.md`](decisions/0005-aliasing-dc-gate.md).
 
-**Gate:** один удар рендерится из конфигурации, нет NaN/Inf, DC близок к нулю,
-алиасинг на максимальном Drive укладывается в заранее зафиксированный порог.
+**Gate:** один удар рендерится из конфигурации, нет NaN/Inf, хвост DC близок к
+нулю, алиасинг на максимальном Drive укладывается в −60 дБ. **Пройден.**
 
 ## Этап 4. Voice engine и MIDI
 
