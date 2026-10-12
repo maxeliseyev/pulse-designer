@@ -4,7 +4,7 @@ Updated: 2026-10-12
 
 Stage: 6 — APVTS and state
 Branch: `feat/plugin-apvts`
-PR: в `main`
+PR: [#8](https://github.com/maxeliseyev/pulse-designer/pull/8) в `main`
 Blockers: нет
 
 ## Done
