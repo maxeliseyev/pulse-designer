@@ -48,7 +48,7 @@ Blockers: нет
 
 ## Verification
 
-- `rtk make test` — зелёный, оба таргета.
+- `make test` — зелёный, оба таргета.
 - Тесты покрывают четыре noise type, S&H period, filter morph, noise render и
   sample rates 44.1/48/96/192 kHz, pitch/velocity и burst block-size invariance.
 - Тесты покрывают все drive types, oversampling factors, DC blocker и nonlinear

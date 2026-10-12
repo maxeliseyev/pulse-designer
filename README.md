@@ -113,8 +113,8 @@ make au           # AU на macOS
 собрать без копирования артефактов:
 
 ```bash
-rtk cmake --preset release -DPULSE_DESIGNER_COPY_PLUGINS=OFF
-rtk cmake --build --preset release --target PulseDesigner_VST3 PulseDesigner_AU PulseDesigner_Standalone
+cmake --preset release -DPULSE_DESIGNER_COPY_PLUGINS=OFF
+cmake --build --preset release --target PulseDesigner_VST3 PulseDesigner_AU PulseDesigner_Standalone
 ```
 
 ## Разработка
