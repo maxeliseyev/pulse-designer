@@ -4,7 +4,7 @@ Updated: 2026-10-12
 
 Stage: 4 — voice engine and MIDI
 Branch: `feat/dsp-voice-modes`
-PR: в `main`
+PR: [#7](https://github.com/maxeliseyev/pulse-designer/pull/7) в `main`
 Blockers: нет
 
 ## Done
