@@ -1,15 +1,11 @@
 #pragma once
 
-#include "Envelope.h"
-#include "DcBlocker.h"
-#include "NoiseGenerator.h"
-#include "NonlinearStage.h"
-#include "Oscillator.h"
+#include "Constants.h"
 #include "SynthParameters.h"
-#include "ToneFilter.h"
-#include "TptStateVariableFilter.h"
+#include "Voice.h"
 
-#include <cstddef>
+#include <array>
+#include <cstdint>
 
 namespace pulse
 {
@@ -35,13 +31,12 @@ public:
 
     double sampleRate() const noexcept { return currentSampleRate; }
     int maxBlockSize() const noexcept { return currentMaxBlockSize; }
+    int busyVoiceCount() const noexcept;
 
 private:
+    bool acceptsNote(int midiNote) const noexcept;
     void trigger(const NoteEvent& event) noexcept;
-    void triggerNoiseBurst() noexcept;
-    void latchOutputControls() noexcept;
-    float processVoiceSample() noexcept;
-    float applyOutput(float input) noexcept;
+    int allocateVoice() const noexcept;
     void render(const NoteEvent* events,
                 int numEvents,
                 float* left,
@@ -52,30 +47,9 @@ private:
     double currentSampleRate = 48000.0;
     int currentMaxBlockSize = 0;
     SynthConfig config;
-    SynthConfig voiceConfig;
-    Oscillator oscillator;
-    ExponentialEnvelope pitchEnvelope;
-    ExponentialEnvelope ampEnvelope;
-    ExponentialEnvelope noiseAmpEnvelope;
-    ExponentialEnvelope filterEnvelope;
-    NoiseGenerator noiseGenerator;
-    TptStateVariableFilter noiseFilter;
-    NonlinearStage shapeStage { NonlinearStage::Kind::shape };
-    NonlinearStage driveStage { NonlinearStage::Kind::drive };
-    DcBlocker dcBlocker;
-    ToneFilter toneFilter;
-    float baseFrequencyHz = 55.0f;
-    float pitchEnvelopeAmountSemitones = 0.0f;
-    float velocityCutoffOctaves = 0.0f;
-    float voiceLevel = 1.0f;
-    float voiceOutputGain = 1.0f;
-    float voiceLeftGain = 0.7071067811865475f;
-    float voiceRightGain = 0.7071067811865475f;
-    int noiseBurstsRemaining = 0;
-    int burstSpacingSamples = 1;
-    int samplesUntilNextBurst = 0;
-    int burstIndex = 0;
-    bool voiceActive = false;
+    std::array<Voice, kMaxVoices> voices;
+    std::array<std::uint64_t, kMaxVoices> voiceTriggerOrder {};
+    std::uint64_t triggerCounter = 0;
 };
 
 } // namespace pulse

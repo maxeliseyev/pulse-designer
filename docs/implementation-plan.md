@@ -1,8 +1,8 @@
 # План реализации Pulse Designer
 
 Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts,
-nonlinear output, Tone/gain/pan, линейный Mix и aliasing/DC gate завершены;
-следующий шаг — APVTS
+nonlinear output, Tone/gain/pan, линейный Mix, aliasing/DC gate и voice engine
+завершены; следующий шаг — APVTS
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -166,7 +166,9 @@ Drive негармоники ниже основного тона и ниже 5 
 офлайн-рендер waveform preview.
 
 **Gate:** один и тот же MIDI-поток при block size 32, 64, 512 и 2048 даёт
-побитово одинаковый output.
+побитово одинаковый output. **Пройден.** Пул голосов, restart/overlap и Note
+Filter —
+[`docs/decisions/0006-voice-modes-retrigger.md`](decisions/0006-voice-modes-retrigger.md).
 
 ## Этап 5. Приёмочные тесты и настройка звука
 

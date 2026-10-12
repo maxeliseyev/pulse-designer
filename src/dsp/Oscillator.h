@@ -12,6 +12,7 @@ public:
     void reset() noexcept;
     void start(float frequencyHz, float phaseDegrees, Waveform newWaveform) noexcept;
     void setFrequency(float frequencyHz) noexcept;
+    void setWaveform(Waveform newWaveform) noexcept { waveform = newWaveform; }
 
     float processSample() noexcept;
 

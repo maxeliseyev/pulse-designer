@@ -47,7 +47,9 @@ void ExponentialEnvelope::start(float newCurrentValue,
 {
     currentValue = std::clamp(newCurrentValue, 0.0f, 1.0f);
     startValue = currentValue;
-    decayStartValue = currentValue > 0.0f ? currentValue : 1.0f;
+    // Every hit peaks at 1: a zero attack jumps there, a non-zero attack ramps
+    // from the current value, so a retrigger never re-enters from silence.
+    decayStartValue = 1.0f;
     curve = std::clamp(newCurve, 0.0f, 1.0f);
     stagePosition = 0;
     stageLength = samplesForMilliseconds(attackMs, currentSampleRate);

@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include "dsp/Constants.h"
 #include "dsp/Envelope.h"
 #include "dsp/DcBlocker.h"
 #include "dsp/OneShotRenderer.h"
@@ -367,9 +368,30 @@ TEST_CASE("envelope retrigger starts from its current value")
         envelope.processSample();
 
     const float current = envelope.value();
-    envelope.start(current, 0.0f, 100.0f, 1.0f);
+    envelope.start(current, 5.0f, 100.0f, 1.0f);
 
     REQUIRE_THAT(envelope.processSample(), WithinAbs(current, 1.0e-6f));
+
+    float peak = current;
+    for (int sample = 0; sample < 240; ++sample)
+        peak = std::max(peak, envelope.processSample());
+
+    REQUIRE_THAT(peak, WithinAbs(1.0f, 1.0e-6f));
+}
+
+TEST_CASE("zero attack retrigger returns the envelope to its peak")
+{
+    pulse::ExponentialEnvelope envelope;
+    envelope.prepare(48000.0);
+    envelope.start(0.0f, 0.0f, 100.0f, 1.0f);
+
+    for (int sample = 0; sample < 2400; ++sample)
+        envelope.processSample();
+
+    REQUIRE(envelope.value() < 0.1f);
+    envelope.start(envelope.value(), 0.0f, 100.0f, 1.0f);
+
+    REQUIRE_THAT(envelope.processSample(), WithinAbs(1.0f, 1.0e-6f));
 }
 
 TEST_CASE("one-shot renderer produces a finite decaying hit")
@@ -879,4 +901,289 @@ TEST_CASE("mix stays latched until the next note")
     changed.processMono(nullptr, 0, actual.data() + blockSize, blockSize);
 
     REQUIRE(actual == expected);
+}
+
+namespace
+{
+std::vector<float> renderEvents(const pulse::SynthConfig& config,
+                                const std::vector<pulse::NoteEvent>& events,
+                                int numSamples,
+                                double sampleRate = 48000.0)
+{
+    pulse::SynthEngine engine;
+    engine.prepare(sampleRate, numSamples);
+    engine.setConfig(config);
+    std::vector<float> rendered(static_cast<std::size_t>(numSamples));
+    engine.processMono(events.data(),
+                       static_cast<int>(events.size()),
+                       rendered.data(),
+                       numSamples);
+    return rendered;
+}
+
+pulse::NoteEvent noteOnAt(int sampleOffset, int midiNote = 60, float velocity = 1.0f)
+{
+    return { pulse::NoteEventType::noteOn, sampleOffset, midiNote, velocity };
+}
+
+float peakBetween(const std::vector<float>& rendered, int first, int last)
+{
+    float peak = 0.0f;
+    for (int sample = first; sample < last; ++sample)
+        peak = std::max(peak, std::abs(rendered[static_cast<std::size_t>(sample)]));
+
+    return peak;
+}
+
+float largestStep(const std::vector<float>& rendered, int first, int last)
+{
+    float step = 0.0f;
+    for (int sample = std::max(first, 1); sample < last; ++sample)
+    {
+        const auto index = static_cast<std::size_t>(sample);
+        step = std::max(step, std::abs(rendered[index] - rendered[index - 1]));
+    }
+
+    return step;
+}
+} // namespace
+
+TEST_CASE("note filter accepts omni, a single note or an inclusive range")
+{
+    auto config = steadyToneConfig();
+    constexpr int numSamples = 256;
+
+    const auto hits = [&](int midiNote)
+    {
+        const auto rendered = renderEvents(config, { noteOnAt(0, midiNote) }, numSamples);
+        return peakBetween(rendered, 0, numSamples) > 0.1f;
+    };
+
+    REQUIRE(hits(12));
+    REQUIRE(hits(100));
+
+    config.noteFilterMode = pulse::NoteFilterMode::note;
+    config.noteFilterNote = 38;
+    REQUIRE(hits(38));
+    REQUIRE_FALSE(hits(37));
+    REQUIRE_FALSE(hits(39));
+
+    config.noteFilterMode = pulse::NoteFilterMode::range;
+    config.noteFilterLow = 48;
+    config.noteFilterHigh = 50;
+    REQUIRE(hits(48));
+    REQUIRE(hits(50));
+    REQUIRE_FALSE(hits(47));
+    REQUIRE_FALSE(hits(51));
+
+    config.noteFilterLow = 50;
+    config.noteFilterHigh = 48;
+    REQUIRE(hits(49));
+    REQUIRE_FALSE(hits(51));
+}
+
+TEST_CASE("note filter is read when the note arrives")
+{
+    auto config = steadyToneConfig();
+    config.noteFilterMode = pulse::NoteFilterMode::note;
+    config.noteFilterNote = 36;
+
+    pulse::SynthEngine engine;
+    engine.prepare(48000.0, 64);
+    engine.setConfig(config);
+    std::vector<float> rendered(64);
+    const auto event = noteOnAt(0, 60);
+    engine.processMono(&event, 1, rendered.data(), 64);
+    REQUIRE(engine.busyVoiceCount() == 0);
+
+    config.noteFilterNote = 60;
+    engine.setConfig(config);
+    engine.processMono(&event, 1, rendered.data(), 64);
+    REQUIRE(engine.busyVoiceCount() == 1);
+}
+
+TEST_CASE("overlap mode sums independent voices")
+{
+    auto config = steadyToneConfig();
+    config.voiceMode = pulse::VoiceMode::overlap;
+    config.voices = 4;
+    constexpr int numSamples = 9600;
+    constexpr int second = 480;
+
+    const auto both = renderEvents(config, { noteOnAt(0), noteOnAt(second) }, numSamples);
+    const auto first = renderEvents(config, { noteOnAt(0) }, numSamples);
+    const auto later = renderEvents(config, { noteOnAt(second) }, numSamples);
+
+    for (std::size_t sample = 0; sample < both.size(); ++sample)
+        REQUIRE_THAT(both[sample], WithinAbs(first[sample] + later[sample], 1.0e-6f));
+}
+
+TEST_CASE("restart mode uses one voice and overlap steals the oldest")
+{
+    auto config = steadyToneConfig();
+    constexpr int blockSize = 64;
+    std::vector<float> rendered(blockSize);
+
+    pulse::SynthEngine restart;
+    restart.prepare(48000.0, blockSize);
+    restart.setConfig(config);
+    for (int hit = 0; hit < 3; ++hit)
+    {
+        const auto event = noteOnAt(0);
+        restart.processMono(&event, 1, rendered.data(), blockSize);
+    }
+    REQUIRE(restart.busyVoiceCount() == 1);
+
+    config.voiceMode = pulse::VoiceMode::overlap;
+    config.voices = 2;
+    pulse::SynthEngine overlap;
+    overlap.prepare(48000.0, blockSize);
+    overlap.setConfig(config);
+    for (int hit = 0; hit < 3; ++hit)
+    {
+        const auto event = noteOnAt(0);
+        overlap.processMono(&event, 1, rendered.data(), blockSize);
+        REQUIRE(overlap.busyVoiceCount() == std::min(hit + 1, 2));
+    }
+
+    config.voices = 8;
+    pulse::SynthEngine wide;
+    wide.prepare(48000.0, blockSize);
+    wide.setConfig(config);
+    for (int hit = 0; hit < 10; ++hit)
+    {
+        const auto event = noteOnAt(0);
+        wide.processMono(&event, 1, rendered.data(), blockSize);
+    }
+    REQUIRE(wide.busyVoiceCount() == pulse::kMaxVoices);
+}
+
+TEST_CASE("finished voices are freed after their tail")
+{
+    auto config = steadyToneConfig();
+    config.voiceMode = pulse::VoiceMode::overlap;
+    config.voices = 8;
+    config.ampDecayMs = 50.0f;
+    config.drive = 1.0f;
+    config.driveType = pulse::DriveType::asymmetric;
+
+    pulse::SynthEngine engine;
+    engine.prepare(48000.0, 4800);
+    engine.setConfig(config);
+    std::vector<float> rendered(4800);
+    const std::vector<pulse::NoteEvent> events { noteOnAt(0), noteOnAt(100), noteOnAt(200) };
+    engine.processMono(events.data(), 3, rendered.data(), 4800);
+    REQUIRE(engine.busyVoiceCount() == 3);
+
+    for (int block = 0; block < 20 && engine.busyVoiceCount() > 0; ++block)
+        engine.processMono(nullptr, 0, rendered.data(), 4800);
+
+    REQUIRE(engine.busyVoiceCount() == 0);
+}
+
+TEST_CASE("a restarted hit returns to full level with its pitch sweep")
+{
+    pulse::SynthConfig config;
+    config.noiseMix = 0.0f;
+    constexpr int numSamples = 48000;
+
+    for (const int gapMs : { 20, 100, 250 })
+    {
+        const int gap = gapMs * 48;
+        const auto single = renderEvents(config, { noteOnAt(0) }, numSamples);
+        const auto twice = renderEvents(config, { noteOnAt(0), noteOnAt(gap) }, numSamples);
+
+        const auto firstPeak = peakBetween(single, 0, 480);
+        const auto retriggerPeak = peakBetween(twice, gap, gap + 480);
+        REQUIRE(retriggerPeak > 0.9f * firstPeak);
+    }
+}
+
+TEST_CASE("retrigger after 5 ms does not click")
+{
+    // A click is a step larger than the hit's own onset from silence. Retriggers
+    // keep oscillator phase and filter state, so only envelopes move.
+    for (const auto waveform : { pulse::Waveform::sine, pulse::Waveform::triangle })
+    {
+        for (const double sampleRate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+        {
+            pulse::SynthConfig config;
+            config.waveform = waveform;
+            config.startPhaseDegrees = 0.0f;
+            config.ampAttackMs = 1.0f;
+            config.noiseAmpAttackMs = 1.0f;
+            const int samplesPerMs = static_cast<int>(sampleRate / 1000.0);
+            const int numSamples = 100 * samplesPerMs;
+
+            std::vector<pulse::NoteEvent> events;
+            for (int hit = 0; hit < 10; ++hit)
+                events.push_back(noteOnAt(hit * 5 * samplesPerMs));
+
+            const auto single = renderEvents(config, { noteOnAt(0) }, numSamples, sampleRate);
+            const auto roll = renderEvents(config, events, numSamples, sampleRate);
+            const auto singleStep = largestStep(single, 0, 5 * samplesPerMs);
+
+            for (int hit = 1; hit < 10; ++hit)
+            {
+                const int onset = hit * 5 * samplesPerMs;
+                REQUIRE(largestStep(roll, onset - 4, onset + 4) <= 1.5f * singleStep);
+            }
+
+            for (float sample : roll)
+                REQUIRE(std::isfinite(sample));
+        }
+    }
+}
+
+TEST_CASE("overlapping MIDI is independent of block size")
+{
+    auto config = steadyToneConfig();
+    config.voiceMode = pulse::VoiceMode::overlap;
+    config.voices = 3;
+    config.noiseMix = 0.5f;
+    config.noiseBursts = 3;
+    config.drive = 0.6f;
+    config.pan = 0.3f;
+    constexpr int totalSamples = 8192;
+    const std::vector<pulse::NoteEvent> events {
+        noteOnAt(31, 60, 1.0f), noteOnAt(31, 64, 0.5f), noteOnAt(700, 48, 0.8f),
+        noteOnAt(701, 72, 0.3f), noteOnAt(2049, 60, 0.9f), noteOnAt(4095, 55, 1.0f)
+    };
+
+    const auto renderInBlocks = [&](int blockSize)
+    {
+        pulse::SynthEngine engine;
+        engine.prepare(48000.0, blockSize);
+        engine.setConfig(config);
+        std::vector<float> left(totalSamples);
+        std::vector<float> right(totalSamples);
+        std::vector<pulse::NoteEvent> blockEvents;
+
+        for (int start = 0; start < totalSamples; start += blockSize)
+        {
+            const int samples = std::min(blockSize, totalSamples - start);
+            blockEvents.clear();
+            for (auto event : events)
+            {
+                if (event.sampleOffset >= start && event.sampleOffset < start + samples)
+                {
+                    event.sampleOffset -= start;
+                    blockEvents.push_back(event);
+                }
+            }
+
+            float* outputs[] = { left.data() + start, right.data() + start };
+            engine.process(blockEvents.data(),
+                           static_cast<int>(blockEvents.size()),
+                           outputs,
+                           2,
+                           samples);
+        }
+
+        return std::pair { left, right };
+    };
+
+    const auto expected = renderInBlocks(totalSamples);
+    for (const int blockSize : { 32, 64, 512, 2048 })
+        REQUIRE(renderInBlocks(blockSize) == expected);
 }

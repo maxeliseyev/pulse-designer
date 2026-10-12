@@ -56,6 +56,9 @@ void PulseDesignerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             break;
 
         const auto message = metadata.getMessage();
+        if (!message.isNoteOnOrOff())
+            continue;
+
         auto& event = midiEvents[static_cast<size_t>(numEvents)];
         event.sampleOffset = metadata.samplePosition;
         event.midiNote = message.getNoteNumber();
