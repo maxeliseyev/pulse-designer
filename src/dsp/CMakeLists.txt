@@ -7,7 +7,8 @@ add_library(pulse_dsp STATIC
     NoiseGenerator.cpp
     Oscillator.cpp
     SynthEngine.cpp
-    TptStateVariableFilter.cpp)
+    TptStateVariableFilter.cpp
+    Voice.cpp)
 
 target_include_directories(pulse_dsp
     PUBLIC

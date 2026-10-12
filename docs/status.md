@@ -1,10 +1,10 @@
 # Status
 
-Updated: 2026-10-02
+Updated: 2026-10-12
 
-Stage: 3 — aliasing and DC gate
-Branch: `feat/dsp-aliasing-gate`
-PR: [#6](https://github.com/maxeliseyev/pulse-designer/pull/6) в `main`
+Stage: 4 — voice engine and MIDI
+Branch: `feat/dsp-voice-modes`
+PR: [#7](https://github.com/maxeliseyev/pulse-designer/pull/7) в `main`
 Blockers: нет
 
 ## Done
@@ -35,6 +35,13 @@ Blockers: нет
   максимальном Drive при 4x и 8x. Хвост удара имеет среднее около нуля.
   Half-band не потребовался.
 - Все параметры голоса копируются в snapshot при `note-on`.
+- `SynthEngine` — пул из восьми `Voice`. Добавлены `restart` и `overlap` с
+  `voices` 1–8 и кражей самого старого голоса, а также Note Filter
+  omni/нота/диапазон.
+- Ретриггер возвращает огибающие к пику от текущего значения и сохраняет фазу
+  осциллятора и состояние фильтра шума. Решение —
+  `docs/decisions/0006-voice-modes-retrigger.md`.
+- `PluginProcessor` пропускает MIDI-сообщения, которые не являются нотами.
 - Добавлены DSP-тесты и plugin smoke-тесты.
 - Добавлен переключатель `PULSE_DESIGNER_COPY_PLUGINS` для сред без доступа к
   системным plugin-папкам.
@@ -50,6 +57,10 @@ Blockers: нет
   наклона, clamp gain, equal-power pan, latch и block-size invariance стереовыхода.
 - Тесты Mix проверяют середину как среднее двух источников, глушение второго
   источника на краях, зажим диапазона и latch.
+- Тесты голосов проверяют Note Filter, сумму голосов в overlap, кражу, освобождение
+  хвостов, возврат уровня после restart, отсутствие щелчка при ретриггере через
+  5 мс на четырёх частотах дискретизации и block-size invariance перекрывающегося
+  MIDI при 32/64/512/2048.
 - Тесты aliasing gate проверяют чистый синус, 4x/8x на четырёх частотах
   дискретизации и всех Drive, провал 1x и нулевой хвост удара.
 - VST3/AU/Standalone targets собраны через CMake с
@@ -61,8 +72,10 @@ Blockers: нет
 
 Следующий срез:
 
-1. APVTS parameter contract и state round-trip;
-2. factory presets.
+1. APVTS parameter contract, latch snapshot в `processBlock` и state round-trip;
+2. factory presets;
+3. UI и waveform preview после sound-quality gate;
+4. host QA и CLAP.
 
 ## Open
 

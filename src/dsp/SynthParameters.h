@@ -28,6 +28,19 @@ enum class DriveType
     fold
 };
 
+enum class VoiceMode
+{
+    restart,
+    overlap
+};
+
+enum class NoteFilterMode
+{
+    omni,
+    note,
+    range
+};
+
 struct SynthConfig
 {
     Waveform waveform = Waveform::sine;
@@ -67,6 +80,13 @@ struct SynthConfig
     float velocityToPitchEnvelope = 0.2f;
     float velocityToCutoff = 0.0f;
     float velocityCurve = 0.5f;
+
+    VoiceMode voiceMode = VoiceMode::restart;
+    int voices = 1;
+    NoteFilterMode noteFilterMode = NoteFilterMode::omni;
+    int noteFilterNote = 36;
+    int noteFilterLow = 0;
+    int noteFilterHigh = 127;
 };
 
 enum class NoteEventType

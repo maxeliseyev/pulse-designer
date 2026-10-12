@@ -28,6 +28,24 @@ TEST_CASE("plugin renders a note-on at its exact sample offset")
                  WithinAbs(buffer.getSample(1, 37), 1.0e-7f));
 }
 
+TEST_CASE("plugin ignores MIDI messages that are not notes")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    PulseDesignerAudioProcessor processor;
+    processor.prepareToPlay(48000.0, 128);
+
+    juce::AudioBuffer<float> buffer(2, 128);
+    buffer.clear();
+    juce::MidiBuffer midi;
+    midi.addEvent(juce::MidiMessage::controllerEvent(1, 7, 100), 0);
+    midi.addEvent(juce::MidiMessage::pitchWheel(1, 12000), 3);
+    midi.addEvent(juce::MidiMessage::noteOff(1, 60), 5);
+
+    processor.processBlock(buffer, midi);
+
+    REQUIRE(buffer.getMagnitude(0, 128) == 0.0f);
+}
+
 TEST_CASE("plugin exposes an instrument bus layout")
 {
     PulseDesignerAudioProcessor processor;
