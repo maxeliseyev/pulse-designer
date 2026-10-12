@@ -1,8 +1,8 @@
 # План реализации Pulse Designer
 
 Статус: bootstrap, oscillator/envelope, noise/TPT, pitch/velocity/bursts,
-nonlinear output, Tone/gain/pan, линейный Mix, aliasing/DC gate и voice engine
-завершены; следующий шаг — APVTS
+nonlinear output, Tone/gain/pan, линейный Mix, aliasing/DC gate, voice engine и
+APVTS/state завершены; следующий шаг — factory presets
 
 Спецификация продукта: [`drum-synth-spec.md`](drum-synth-spec.md)
 
@@ -218,11 +218,13 @@ Filter —
 
 Добавить:
 
-- `AudioParameterChoice`, `AudioParameterFloat`, `AudioParameterInt`;
+- `AudioParameterChoice`, `AudioParameterFloat`, `AudioParameterInt`; **готово,
+  контракт —
+  [`docs/decisions/0007-parameter-contract.md`](decisions/0007-parameter-contract.md)**
 - логарифмические диапазоны для времени и частот;
 - единицы измерения и форматы отображения;
-- versioned `ValueTree` state;
-- state migration;
+- versioned `ValueTree` state; **готово**
+- state migration; **точка миграции готова, версия 1**
 - девять заводских пресетов: kick deep, kick tight, snare, rim, tom, closed
   hat, open hat, clap, zap.
 

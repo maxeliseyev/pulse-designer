@@ -37,8 +37,10 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
-    const juce::AudioProcessorValueTreeState& getParameters() const
+    static constexpr int kStateVersion = 1;
+
+    juce::AudioProcessorValueTreeState& getValueTreeState() { return parameters; }
+    const juce::AudioProcessorValueTreeState& getValueTreeState() const
     {
         return parameters;
     }
@@ -47,9 +49,9 @@ private:
     static BusesProperties createBusesProperties();
 
     juce::AudioProcessorValueTreeState parameters;
+    pulse::ParameterSnapshot parameterSnapshot { parameters };
     pulse::SynthEngine synth;
     std::array<pulse::NoteEvent, pulse::kMaxMidiEventsPerBlock> midiEvents {};
-    double currentSampleRate = 48000.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PulseDesignerAudioProcessor)
 };

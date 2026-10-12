@@ -11,3 +11,5 @@ All notable changes to Pulse Designer are documented here.
 - Added an eight-voice pool with restart and overlap voice modes and a Note
   Filter.
 - Fixed retrigger so every hit returns to full level without a click.
+- Added the public parameter set with stable IDs, a lock-free snapshot per
+  block and versioned plugin state.

@@ -15,14 +15,6 @@
 Если появится `docs/status.md`, он становится первым источником текущего
 состояния, ветки и следующего шага.
 
-Команды shell в проекте запускаются через `rtk`, например:
-
-```bash
-rtk git status
-rtk rg -n "pattern" src tests
-rtk make test
-```
-
 ## Продуктовые границы
 
 Первая версия — один MIDI-инструмент на инстанс:
@@ -159,6 +151,7 @@ DSP-ядро уже включает oscillator, noise, линейный Mix, TP
 Drive, oversampling, DC blocker, Tone, output gain, equal-power pan и пул из
 восьми голосов с restart/overlap и Note Filter.
 Aliasing/DC gate пройден, ресемплер остаётся linear interpolation и averaging.
-Публичные APVTS parameters ещё не заведены.
+Публичные APVTS parameters заведены, контракт ID —
+`docs/decisions/0007-parameter-contract.md`.
 
 Текущий статус, ветка и следующий шаг — в `docs/status.md`.

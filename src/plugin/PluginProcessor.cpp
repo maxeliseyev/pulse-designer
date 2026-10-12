@@ -4,6 +4,11 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+namespace
+{
+const juce::Identifier stateVersionProperty { "stateVersion" };
+} // namespace
+
 PulseDesignerAudioProcessor::PulseDesignerAudioProcessor()
     : AudioProcessor(createBusesProperties()),
       parameters(*this, nullptr, "PulseDesigner", pulse::createParameterLayout())
@@ -23,8 +28,8 @@ PulseDesignerAudioProcessor::createBusesProperties()
 
 void PulseDesignerAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    currentSampleRate = sampleRate;
     synth.prepare(sampleRate, samplesPerBlock);
+    synth.setConfig(parameterSnapshot.read());
 }
 
 void PulseDesignerAudioProcessor::releaseResources()
@@ -46,8 +51,10 @@ bool PulseDesignerAudioProcessor::isBusesLayoutSupported(const BusesLayout& layo
 void PulseDesignerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                                juce::MidiBuffer& midi)
 {
-    juce::ignoreUnused(currentSampleRate);
     juce::ScopedNoDenormals noDenormals;
+
+    // The engine latches this snapshot on each note-on inside the block.
+    synth.setConfig(parameterSnapshot.read());
 
     int numEvents = 0;
     for (const juce::MidiMessageMetadata metadata : midi)
@@ -82,7 +89,10 @@ juce::AudioProcessorEditor* PulseDesignerAudioProcessor::createEditor()
 
 void PulseDesignerAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    if (auto xml = parameters.copyState().createXml())
+    auto state = parameters.copyState();
+    state.setProperty(stateVersionProperty, kStateVersion, nullptr);
+
+    if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
 }
 
@@ -92,7 +102,15 @@ void PulseDesignerAudioProcessor::setStateInformation(const void* data, int size
     if (xml == nullptr || !xml->hasTagName(parameters.state.getType()))
         return;
 
-    parameters.replaceState(juce::ValueTree::fromXml(*xml));
+    auto state = juce::ValueTree::fromXml(*xml);
+    // Version 1 holds the first public parameter set; a later format adds its
+    // migration here before the tree reaches the APVTS. Newer states load the
+    // parameters this build knows and ignore the rest.
+    state.removeProperty(stateVersionProperty, nullptr);
+
+    // The APVTS gives a parameter missing from the tree its default value, so an
+    // older state never inherits values from the project this instance held before.
+    parameters.replaceState(state);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
